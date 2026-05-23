@@ -244,22 +244,23 @@
                     </div>
                 </div>
 
+                <!-- Fix lỗi map bị đẩy ra ngoài bằng cách thêm min-w-0 vào thẻ div chứa text -->
                 <div class="flex items-start text-gray-700">
                     <div class="w-10 text-primary/70 text-center pt-1"><i class="fas fa-map-marked-alt text-xl"></i></div>
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0"> 
                         <p class="text-sm text-gray-500">Địa chỉ</p>
                         <p id="detLocation" class="font-semibold break-words pr-2">...</p>
                     </div>
-                    <button id="btnMap" class="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center hover:bg-blue-100 shrink-0">
+                    <button id="btnMap" class="w-10 h-10 ml-2 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center hover:bg-blue-100 shrink-0">
                         <i class="fas fa-location-arrow"></i>
                     </button>
                 </div>
 
                 <div class="flex items-start text-gray-700">
                     <div class="w-10 text-primary/70 text-center pt-1"><i class="fas fa-align-left text-xl"></i></div>
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <p class="text-sm text-gray-500">Ghi chú</p>
-                        <p id="detNote" class="font-medium text-sm text-gray-600 bg-gray-50 p-2 rounded-lg mt-1 min-h-[40px]">...</p>
+                        <p id="detNote" class="font-medium text-sm text-gray-600 bg-gray-50 p-2 rounded-lg mt-1 min-h-[40px] break-words">...</p>
                     </div>
                 </div>
             </div>
@@ -353,13 +354,19 @@
             <div style="display: inline-flex; justify-content: center; align-items: center; width: 50px; height: 50px; background: #f43f5e; border-radius: 50%; color: white; font-size: 24px; margin-bottom: 10px;">
                 <i class="fas fa-magic"></i>
             </div>
-            <h2 style="margin: 0; color: #f43f5e; font-size: 24px; font-weight: bold;">PHIẾU CHỐT LỊCH</h2>
-            <p style="margin: 5px 0 0; color: #6b7280; font-size: 14px;">Makeup & Styling</p>
+            <h2 style="margin: 0; color: #f43f5e; font-size: 24px; font-weight: bold;">Minh Thư Mackup</h2>
+            <p style="margin: 5px 0 0; color: #6b7280; font-size: 14px;">PHIẾU CHỐT LỊCH</p>
         </div>
         
         <div style="border-top: 1px solid #fce7f3; padding-top: 15px; margin-bottom: 15px;">
             <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Khách hàng:</strong> <span id="capCustomer" style="color: #111827;"></span></p>
-            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Ngày hẹn:</strong> <span id="capDate" style="color: #111827;"></span></p>
+            
+            <!-- Đã thêm phần hiển thị Ngày Âm Lịch -->
+            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;">
+                <strong>Ngày hẹn:</strong> <span id="capDate" style="color: #111827;"></span> 
+                <span style="font-size: 13px; color: #f43f5e; margin-left: 5px;">(Âm lịch: <span id="capLunarDate"></span>)</span>
+            </p>
+            
             <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Giờ hẹn:</strong> <span id="capTime" style="color: #f43f5e; font-weight: bold; font-size: 18px;"></span></p>
         </div>
 
@@ -665,9 +672,14 @@
         const [y, m, d] = app.date.split('-');
         document.getElementById('capCustomer').innerText = app.customer;
         document.getElementById('capDate').innerText = `${d}/${m}/${y}`;
+        
+        // Cập nhật ngày Âm Lịch vào ảnh chụp
+        const lunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
+        document.getElementById('capLunarDate').innerText = `${lunar.day}/${lunar.month}`;
+
         document.getElementById('capTime').innerText = app.time;
         document.getElementById('capPackage').innerText = app.package || 'Tự do';
-        document.getElementById('capLocation').innerText = app.location || 'Tại Tiệm';
+        document.getElementById('capLocation').innerText = app.location || '';
         document.getElementById('capNote').innerText = app.note || 'Không';
 
         const btn = document.getElementById('btnCapture');
@@ -686,7 +698,6 @@
             link.click();
             document.body.removeChild(link);
             
-            alert('Đã lưu ảnh phiếu chốt lịch!');
         } catch (error) {
             alert('Không thể tạo ảnh. Vui lòng thử lại.');
         } finally {
