@@ -10,8 +10,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- html2canvas for screenshots -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <script>
         tailwind.config = {
@@ -49,13 +47,12 @@
         .calendar-cell:not(.active):not(.empty):hover { background-color: #ffe4e6; }
         .calendar-cell.empty { background-color: transparent; cursor: default; }
         
-        /* Chỉnh lại font size để chứa được Tháng Âm Lịch */
-        .lunar-date { font-size: 0.6rem; margin-top: -2px; letter-spacing: -0.5px; }
+        /* Cải thiện hiển thị lịch âm */
+        .lunar-date { font-size: 0.65rem; margin-top: -1px; letter-spacing: -0.5px; font-weight: 600; }
         .active .lunar-date { color: #ffe4e6; }
         .lunar-date.highlight { color: #ef4444; font-weight: bold; }
         .active .lunar-date.highlight { color: #fff; }
         
-        /* Badge số lượng trên góc ô lịch */
         .event-badge {
             position: absolute; top: -4px; right: -4px; width: 18px; height: 18px;
             border-radius: 50%; font-size: 10px; font-weight: bold;
@@ -66,10 +63,12 @@
         .tab-content { display: none; flex: 1; overflow-y: auto; padding-bottom: 80px; }
         .tab-content.active { display: block; }
         
-        /* Phiếu chốt lịch ẩn để chụp */
-        #captureCard {
-            position: fixed; top: -2000px; left: 0; width: 400px; background: white;
-            padding: 24px; border-radius: 16px; box-sizing: border-box; font-family: 'Inter', sans-serif;
+        /* Custom radio button styles */
+        .source-radio:checked + div {
+            background-color: #ffe4e6;
+            border-color: #f43f5e;
+            color: #f43f5e;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -83,11 +82,9 @@
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-xl font-bold">Lịch Makeup</h1>
                 <div class="flex space-x-2">
-                    <!-- Nút Backup/Restore -->
                     <button onclick="openModal('syncModal')" class="bg-white/20 text-white w-8 h-8 rounded-full flex items-center justify-center shadow backdrop-blur-sm">
                         <i class="fas fa-sync-alt"></i>
                     </button>
-                    <!-- Nút Thêm Mới -->
                     <button onclick="openFormModal()" class="bg-white text-primary w-8 h-8 rounded-full flex items-center justify-center shadow">
                         <i class="fas fa-plus"></i>
                     </button>
@@ -168,16 +165,48 @@
             <div class="space-y-4 overflow-y-auto pr-1 pb-4">
                 <input type="hidden" id="inpId">
                 
+                <div class="flex space-x-3">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tên khách hàng *</label>
+                        <input type="text" id="inpCustomer" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white transition-colors" placeholder="Nhập tên khách...">
+                    </div>
+                    <div class="w-24 shrink-0">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Số lượng</label>
+                        <input type="number" id="inpGuestCount" min="1" value="1" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-center text-gray-700">
+                    </div>
+                </div>
+
+                <!-- Lựa chọn Nguồn Đặt -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tên khách hàng *</label>
-                    <input type="text" id="inpCustomer" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white transition-colors" placeholder="Nhập tên khách...">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Khách đặt qua đâu?</label>
+                    <div class="flex space-x-2 mb-2">
+                        <label class="cursor-pointer flex-1">
+                            <input type="radio" name="sourceType" value="Facebook" class="hidden source-radio" checked onchange="toggleSourceOther()">
+                            <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
+                                <i class="fab fa-facebook text-blue-600 mr-1"></i> Facebook
+                            </div>
+                        </label>
+                        <label class="cursor-pointer flex-1">
+                            <input type="radio" name="sourceType" value="Zalo" class="hidden source-radio" onchange="toggleSourceOther()">
+                            <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
+                                <i class="fas fa-comment text-blue-400 mr-1"></i> Zalo
+                            </div>
+                        </label>
+                        <label class="cursor-pointer flex-1">
+                            <input type="radio" name="sourceType" value="Khác" class="hidden source-radio" onchange="toggleSourceOther()">
+                            <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
+                                <i class="fas fa-ellipsis-h mr-1"></i> Khác
+                            </div>
+                        </label>
+                    </div>
+                    <!-- Ô nhập tay khi chọn Khác -->
+                    <input type="text" id="inpSourceOther" class="hidden w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 mt-1 outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Nhập nguồn khác (vd: Người quen, Tiktok...)">
                 </div>
                 
                 <div class="flex space-x-3 items-start">
                     <div class="w-1/2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ngày hẹn *</label>
                         <input type="date" id="inpDate" onchange="updateFormLunarDate()" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-gray-700">
-                        <!-- Hiển thị ngày âm ngay dưới ngày dương -->
                         <p id="formLunarDateText" class="text-xs text-primary font-medium mt-1 ml-1"><i class="fas fa-moon mr-1"></i> Âm lịch: ...</p>
                     </div>
                     <div class="w-1/2">
@@ -213,70 +242,66 @@
         </div>
     </div>
 
-    <!-- 2. Modal Xem Chi Tiết -->
+    <!-- 2. Modal Phiếu Chốt Lịch (ĐÃ CHỈNH NÚT X RA HOÀN TOÀN KHỎI PHIẾU) -->
     <div id="detailModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
         <div class="modal-overlay absolute inset-0" onclick="closeModal('detailModal')"></div>
-        <div class="bg-white w-full max-w-sm rounded-3xl overflow-hidden relative scale-90 opacity-0 shadow-2xl" id="detailModalContent" style="transition: all 0.2s ease-out;">
-            
-            <div id="detailHeader" class="bg-gradient-to-r from-primary to-rose-400 p-6 text-white text-center relative">
-                <button onclick="closeModal('detailModal')" class="absolute top-4 right-4 w-8 h-8 bg-black/20 rounded-full flex items-center justify-center backdrop-blur-sm"><i class="fas fa-times"></i></button>
-                <div class="w-16 h-16 bg-white/20 rounded-full mx-auto mb-2 flex items-center justify-center text-3xl">
-                    <i class="fas fa-user"></i>
+        
+        <!-- NÚT X ĐƯỢC DI CHUYỂN HOÀN TOÀN RA NGOÀI, GÓC TRÊN CÙNG MÀN HÌNH -->
+        <button onclick="closeModal('detailModal')" class="absolute top-6 right-6 z-[100] w-10 h-10 bg-gray-800/50 text-white rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/20 active:scale-95 transition-transform">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+
+        <!-- Khối nội dung chính (Phiếu chốt) KHÔNG chứa nút X, chụp ảnh không bị dính -->
+        <div class="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col relative scale-90 opacity-0" id="detailModalContent" style="transition: all 0.2s ease-out;">
+            <!-- VÙNG CHỤP MÀN HÌNH -->
+            <div id="captureCard" class="p-5 bg-white relative">
+                <div class="border-2 border-dashed border-primary rounded-xl p-5 bg-rose-50/30 relative">
+                    <!-- Ribbon status -->
+                    <div id="detStatusBadge" class="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg"></div>
+
+                    <div class="text-center mb-4">
+                        <div class="inline-flex justify-center items-center w-12 h-12 bg-primary rounded-full text-white text-xl mb-2 shadow-md">
+                            <i class="fas fa-magic"></i>
+                        </div>
+                        <h2 class="m-0 text-primary text-2xl font-bold uppercase tracking-wide">Minh Thư Makeup</h2>
+                        <p class="m-0 mt-1 text-gray-500 text-sm font-medium">PHIẾU CHỐT LỊCH</p>
+                    </div>
+                    
+                    <div class="border-t border-rose-200 pt-4 mb-4">
+                        <p class="mb-2 text-[15px] text-gray-700"><strong>Khách hàng:</strong> <span id="capCustomer" class="text-gray-900 font-medium"></span></p>
+                        
+                        <p class="mb-2 text-[15px] text-gray-700">
+                            <strong>Ngày hẹn:</strong> <span id="capDate" class="text-gray-900 font-medium"></span> 
+                            <span class="text-[13px] text-primary ml-1">(Âm: <span id="capLunarDate"></span>)</span>
+                        </p>
+                        
+                        <p class="mb-2 text-[15px] text-gray-700"><strong>Giờ hẹn:</strong> <span id="capTime" class="text-primary font-bold text-lg"></span></p>
+                    </div>
+
+                    <div class="bg-rose-100/50 p-3 rounded-lg mb-4">
+                        <p class="mb-1 text-sm text-rose-900"><strong><i class="fas fa-box-open w-4"></i> Gói Makeup:</strong> <span id="capPackage"></span></p>
+                        <p class="mb-1 text-sm text-rose-900"><strong><i class="fas fa-users w-4"></i> Số lượng:</strong> <span id="capGuest"></span> khách</p>
+                        <p class="m-0 text-sm text-rose-900 break-words"><strong><i class="fas fa-map-marker-alt w-4"></i> Địa chỉ:</strong> <span id="capLocation"></span></p>
+                    </div>
+                    
+                    <p class="m-0 mb-4 text-sm text-gray-600 italic break-words"><strong class="not-italic">Ghi chú:</strong> <span id="capNote"></span></p>
+
+                    <div class="text-center border-t border-dashed border-rose-300 pt-4">
+                        <p class="m-0 text-primary font-bold text-sm">Cảm ơn bạn đã tin tưởng và lựa chọn!</p>
+                    </div>
                 </div>
-                <h2 id="detCustomer" class="text-2xl font-bold">Tên Khách</h2>
-                <div id="detStatusBadge" class="mt-2 inline-block px-3 py-1 rounded-full text-xs font-semibold bg-white/20"></div>
             </div>
 
-            <div class="p-6 space-y-4">
-                <div class="flex items-center text-gray-700">
-                    <div class="w-10 text-primary/70 text-center"><i class="fas fa-clock text-xl"></i></div>
-                    <div>
-                        <p class="text-sm text-gray-500">Thời gian</p>
-                        <p id="detDateTime" class="font-semibold">...</p>
-                    </div>
-                </div>
-
-                <div class="flex items-center text-gray-700">
-                    <div class="w-10 text-primary/70 text-center"><i class="fas fa-box-open text-xl"></i></div>
-                    <div>
-                        <p class="text-sm text-gray-500">Gói Makeup</p>
-                        <p id="detPackage" class="font-semibold">...</p>
-                    </div>
-                </div>
-
-                <!-- Fix lỗi map bị đẩy ra ngoài bằng cách thêm min-w-0 vào thẻ div chứa text -->
-                <div class="flex items-start text-gray-700">
-                    <div class="w-10 text-primary/70 text-center pt-1"><i class="fas fa-map-marked-alt text-xl"></i></div>
-                    <div class="flex-1 min-w-0"> 
-                        <p class="text-sm text-gray-500">Địa chỉ</p>
-                        <p id="detLocation" class="font-semibold break-words pr-2">...</p>
-                    </div>
-                    <button id="btnMap" class="w-10 h-10 ml-2 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center hover:bg-blue-100 shrink-0">
-                        <i class="fas fa-location-arrow"></i>
-                    </button>
-                </div>
-
-                <div class="flex items-start text-gray-700">
-                    <div class="w-10 text-primary/70 text-center pt-1"><i class="fas fa-align-left text-xl"></i></div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm text-gray-500">Ghi chú</p>
-                        <p id="detNote" class="font-medium text-sm text-gray-600 bg-gray-50 p-2 rounded-lg mt-1 min-h-[40px] break-words">...</p>
-                    </div>
-                </div>
-            </div>
-
+            <!-- Nút chức năng (không nằm trong vùng chụp ảnh) -->
             <div class="p-4 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-2">
-                <button id="btnCapture" class="py-2.5 bg-indigo-50 text-indigo-600 font-semibold rounded-xl flex items-center justify-center space-x-2">
-                    <i class="fas fa-camera"></i> <span>Chốt lịch</span>
-                </button>
                 <button id="btnEdit" class="py-2.5 bg-orange-50 text-orange-500 font-semibold rounded-xl flex items-center justify-center space-x-2">
-                    <i class="fas fa-pen"></i> <span>Sửa</span>
+                    <i class="fas fa-pen"></i> <span>Sửa lịch</span>
                 </button>
-                <button id="btnComplete" class="py-2.5 bg-green-500 text-white font-semibold rounded-xl flex items-center justify-center space-x-2 col-span-2 shadow-md shadow-green-500/30">
-                    <i class="fas fa-check-circle"></i> <span>Đã xong & Tính tiền</span>
+                <button id="btnDelete" class="py-2.5 bg-red-50 text-red-500 font-semibold rounded-xl flex items-center justify-center space-x-2">
+                    <i class="fas fa-trash-alt"></i> <span>Xóa</span>
                 </button>
-                <button id="btnDelete" class="py-2.5 bg-red-50 text-red-500 font-semibold rounded-xl flex items-center justify-center space-x-2 col-span-2 mt-1">
-                    <i class="fas fa-trash-alt"></i> <span>Xóa lịch này</span>
+                <button id="btnComplete" class="py-3 bg-green-500 text-white font-bold rounded-xl flex items-center justify-center space-x-2 col-span-2 shadow-md shadow-green-500/30">
+                    <i class="fas fa-check-circle text-lg"></i> <span>Đã xong & Tính tiền</span>
                 </button>
             </div>
         </div>
@@ -338,7 +363,6 @@
                     <button onclick="document.getElementById('importFile').click()" class="w-full bg-green-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">
                         Nhập file dữ liệu
                     </button>
-                    <!-- Input ẩn -->
                     <input type="file" id="importFile" hidden accept=".json" onchange="importData(event)">
                 </div>
             </div>
@@ -347,57 +371,31 @@
 
 </div>
 
-<!-- THẺ ẨN ĐỂ CHỤP ẢNH PHIẾU CHỐT LỊCH CHUYÊN NGHIỆP -->
-<div id="captureCard">
-    <div style="border: 2px dashed #f43f5e; border-radius: 12px; padding: 20px; background: #fffcfd;">
-        <div style="text-align: center; margin-bottom: 20px;">
-            <div style="display: inline-flex; justify-content: center; align-items: center; width: 50px; height: 50px; background: #f43f5e; border-radius: 50%; color: white; font-size: 24px; margin-bottom: 10px;">
-                <i class="fas fa-magic"></i>
-            </div>
-            <h2 style="margin: 0; color: #f43f5e; font-size: 24px; font-weight: bold;">Minh Thư Mackup</h2>
-            <p style="margin: 5px 0 0; color: #6b7280; font-size: 14px;">PHIẾU CHỐT LỊCH</p>
-        </div>
-        
-        <div style="border-top: 1px solid #fce7f3; padding-top: 15px; margin-bottom: 15px;">
-            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Khách hàng:</strong> <span id="capCustomer" style="color: #111827;"></span></p>
-            
-            <!-- Đã thêm phần hiển thị Ngày Âm Lịch -->
-            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;">
-                <strong>Ngày hẹn:</strong> <span id="capDate" style="color: #111827;"></span> 
-                <span style="font-size: 13px; color: #f43f5e; margin-left: 5px;">(Âm lịch: <span id="capLunarDate"></span>)</span>
-            </p>
-            
-            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Giờ hẹn:</strong> <span id="capTime" style="color: #f43f5e; font-weight: bold; font-size: 18px;"></span></p>
-        </div>
-
-        <div style="background: #fff1f2; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-            <p style="margin: 0 0 5px; font-size: 14px; color: #881337;"><strong><i class="fas fa-box-open"></i> Gói Makeup:</strong> <span id="capPackage"></span></p>
-            <p style="margin: 0; font-size: 14px; color: #881337;"><strong><i class="fas fa-map-marker-alt"></i> Địa chỉ:</strong> <span id="capLocation"></span></p>
-        </div>
-        
-        <p style="margin: 0 0 15px; font-size: 14px; color: #4b5563; font-style: italic;"><strong style="font-style: normal;">Ghi chú:</strong> <span id="capNote"></span></p>
-
-        <div style="text-align: center; border-top: 1px dashed #f9a8d4; padding-top: 15px;">
-            <p style="margin: 0; color: #f43f5e; font-weight: bold;">Cảm ơn bạn đã tin tưởng và lựa chọn!</p>
-        </div>
-    </div>
-</div>
-
 <!-- SCRIPT LOGIC -->
 <script>
-    // --- LUNAR CALENDAR (Rút gọn) ---
+    // --- LUNAR CALENDAR (BẢN MỚI CHUẨN XÁC, SỬ DỤNG API TRÌNH DUYỆT) ---
+    // Khắc phục triệt để lỗi lệch ngày và mất ngày 1, 16, 30 do thuật toán JDN cũ
     const LunarCal = (function() {
         function getLunarDate(dd, mm, yy) {
-            const baseDate = new Date(1900, 0, 31);
-            const currentDate = new Date(yy, mm - 1, dd);
-            const diffDays = Math.floor((currentDate - baseDate) / (1000 * 60 * 60 * 24));
-            let daysLeft = diffDays;
-            let lunarDaysCount = (daysLeft % 29.53059);
-            let lunarDay = Math.floor(lunarDaysCount) + 1;
-            if(lunarDay > 30) lunarDay = 1;
-            let totalMonths = Math.floor(daysLeft / 29.53059);
-            let lunarMonth = (totalMonths % 12) + 1;
-            return { day: lunarDay, month: lunarMonth };
+            try {
+                const date = new Date(yy, mm - 1, dd);
+                // Sử dụng API Intl chuẩn của trình duyệt để lấy lịch âm
+                const formatter = new Intl.DateTimeFormat('en-US', { 
+                    day: 'numeric', 
+                    month: 'numeric', 
+                    calendar: 'chinese' 
+                });
+                // Kết quả luôn trả về dạng "Tháng/Ngày" (VD: "4/7" -> mùng 7 tháng 4)
+                const formatted = formatter.format(date); 
+                
+                const matches = formatted.match(/\d+/g);
+                if (matches && matches.length >= 2) {
+                    return { day: parseInt(matches[1], 10), month: parseInt(matches[0], 10) };
+                }
+                return { day: dd, month: mm }; // Dự phòng
+            } catch (e) {
+                return { day: dd, month: mm }; // Trả về ngày dương nếu trình duyệt quá cũ
+            }
         }
         return { getLunarDate };
     })();
@@ -413,7 +411,16 @@
     let statMonth = currentDate.getMonth();
     let statYear = currentDate.getFullYear();
 
-    let appointments = JSON.parse(localStorage.getItem('makeup_appointments_v2')) || [];
+    let appointments = JSON.parse(localStorage.getItem('makeup_appointments_v3')) || [];
+    // Migration from v2 to v3 if needed
+    if(appointments.length === 0) {
+        let oldData = JSON.parse(localStorage.getItem('makeup_appointments_v2'));
+        if(oldData && oldData.length > 0) {
+            appointments = oldData.map(app => ({...app, source: 'Không rõ', guestCount: 1}));
+            localStorage.setItem('makeup_appointments_v3', JSON.stringify(appointments));
+        }
+    }
+
     let currentActionId = null;
 
     // --- INITIALIZATION ---
@@ -446,7 +453,6 @@
             const isToday = isSameDate(cellDate, new Date());
             const isSelected = isSameDate(cellDate, selectedDate);
             
-            // Lấy ngày âm và LUÔN LUÔN in định dạng Ngày/Tháng
             const lunar = LunarCal.getLunarDate(i, displayMonth + 1, displayYear);
             let lunarText = `${lunar.day}/${lunar.month}`;
             const isHighlightLunar = (lunar.day === 1 || lunar.day === 15);
@@ -463,9 +469,10 @@
             cell.className = `calendar-cell ${isSelected ? 'active' : ''} ${isToday && !isSelected ? 'border border-primary text-primary' : ''}`;
             cell.onclick = () => selectDate(cellDate);
 
+            // Đổi màu lịch âm từ text-gray-400 sang text-gray-600 để rõ hơn
             cell.innerHTML = `
                 <span class="z-10 font-bold">${i}</span>
-                <span class="lunar-date ${isHighlightLunar ? 'highlight' : 'text-gray-400'} z-10">${lunarText}</span>
+                <span class="lunar-date ${isHighlightLunar ? 'highlight' : 'text-gray-600'} z-10">${lunarText}</span>
                 ${badgeHtml}
             `;
             calendarDays.appendChild(cell);
@@ -482,7 +489,7 @@
     function selectDate(date) {
         selectedDate = date;
         document.getElementById('inpDate').value = formatDateStr(date);
-        updateFormLunarDate(); // Cập nhật ngày âm trong form nếu đang mở
+        updateFormLunarDate(); 
         renderCalendar(); 
         renderAppointments();
     }
@@ -518,26 +525,29 @@
         dailyApps.forEach(app => {
             const isCompleted = app.status === 'completed';
             const card = document.createElement('div');
-            card.className = `bg-white p-4 rounded-2xl shadow-sm border-l-4 ${isCompleted ? 'border-green-400 opacity-80' : 'border-primary'} flex justify-between items-center active:scale-[0.98] transition-transform`;
+            card.className = `bg-white p-4 rounded-2xl shadow-sm border-l-4 ${isCompleted ? 'border-green-400 opacity-80' : 'border-primary'} flex justify-between items-start active:scale-[0.98] transition-transform cursor-pointer`;
             card.onclick = () => openDetailModal(app.id);
 
             let statusHtml = !isCompleted 
-                ? `<span class="w-3 h-3 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500/50"></span>` 
-                : `<i class="fas fa-check-circle text-green-500 text-lg"></i>`;
+                ? `<span class="w-3 h-3 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500/50 mt-1"></span>` 
+                : `<i class="fas fa-check-circle text-green-500 text-lg mt-1"></i>`;
+
+            let guestCountTxt = (app.guestCount && app.guestCount > 1) ? ` (${app.guestCount} khách)` : '';
+            let sourceTxt = app.source ? `Đặt qua: ${app.source}` : '';
 
             card.innerHTML = `
-                <div class="flex items-center space-x-3 w-full pr-2">
-                    <div class="bg-gray-100 px-3 py-2 rounded-xl text-center shrink-0 border border-gray-200">
+                <div class="flex space-x-3 w-full pr-2 min-w-0">
+                    <div class="bg-gray-100 px-3 py-2 rounded-xl text-center shrink-0 border border-gray-200 self-start">
                         <span class="block text-sm font-bold text-gray-800">${app.time}</span>
                     </div>
-                    <div class="truncate flex-1">
-                        <h4 class="font-bold text-gray-800 text-base truncate">${app.customer}</h4>
-                        <p class="text-xs text-gray-500 truncate flex items-center mt-0.5">
-                            <i class="fas fa-map-marker-alt text-gray-400 mr-1 w-3 text-center"></i> 
-                            ${app.location || 'Chưa có địa chỉ'}
-                        </p>
+                    <div class="flex-1 min-w-0 flex flex-col justify-center">
+                        <h4 class="font-bold text-gray-800 text-base truncate leading-tight mb-1">
+                            ${app.customer}${guestCountTxt} <span class="text-xs font-normal text-blue-500 ml-1">- ${sourceTxt}</span>
+                        </h4>
+                        <p class="text-xs text-gray-600 truncate mb-0.5"><i class="fas fa-align-left text-gray-400 w-3 text-center mr-1"></i> Ghi chú: ${app.note || 'Không'}</p>
+                        <p class="text-xs text-gray-600 truncate"><i class="fas fa-map-marker-alt text-gray-400 w-3 text-center mr-1"></i> Địa chỉ: ${app.location || 'Tại tiệm'}</p>
                     </div>
-                    <div class="shrink-0 flex items-center justify-center w-8 h-8">
+                    <div class="shrink-0 flex items-start justify-center w-6">
                         ${statusHtml}
                     </div>
                 </div>
@@ -547,6 +557,20 @@
     }
 
     // --- FORM LOGIC (ADD / EDIT) ---
+    function toggleSourceOther() {
+        const radios = document.getElementsByName('sourceType');
+        let selectedValue = '';
+        for(let r of radios) { if(r.checked) selectedValue = r.value; }
+        
+        const otherInput = document.getElementById('inpSourceOther');
+        if(selectedValue === 'Khác') {
+            otherInput.classList.remove('hidden');
+            otherInput.focus();
+        } else {
+            otherInput.classList.add('hidden');
+        }
+    }
+
     function openFormModal(id = null) {
         const isEdit = id !== null;
         document.getElementById('formModalTitle').innerText = isEdit ? 'Sửa lịch hẹn' : 'Thêm lịch Makeup';
@@ -555,27 +579,45 @@
             const app = appointments.find(a => a.id === id);
             document.getElementById('inpId').value = app.id;
             document.getElementById('inpCustomer').value = app.customer;
+            document.getElementById('inpGuestCount').value = app.guestCount || 1;
             document.getElementById('inpDate').value = app.date;
             document.getElementById('inpTime').value = app.time;
             document.getElementById('inpPackage').value = app.package || '';
             document.getElementById('inpLocation').value = app.location || '';
             document.getElementById('inpNote').value = app.note || '';
+
+            // Handle Source radio
+            const radios = document.getElementsByName('sourceType');
+            let isOther = true;
+            for(let r of radios) {
+                if(r.value === app.source) { r.checked = true; isOther = false; break; }
+            }
+            if(isOther && app.source) {
+                document.querySelector('input[name="sourceType"][value="Khác"]').checked = true;
+                document.getElementById('inpSourceOther').value = app.source;
+            } else {
+                document.getElementById('inpSourceOther').value = '';
+            }
         } else {
             document.getElementById('inpId').value = '';
             document.getElementById('inpCustomer').value = '';
+            document.getElementById('inpGuestCount').value = '1';
             document.getElementById('inpTime').value = '';
             document.getElementById('inpPackage').value = '';
             document.getElementById('inpLocation').value = '';
             document.getElementById('inpNote').value = '';
             document.getElementById('inpDate').value = formatDateStr(selectedDate);
+            
+            document.querySelector('input[name="sourceType"][value="Facebook"]').checked = true;
+            document.getElementById('inpSourceOther').value = '';
         }
         
-        updateFormLunarDate(); // Cập nhật text âm lịch
+        toggleSourceOther();
+        updateFormLunarDate(); 
         closeModal('detailModal');
         openModal('formModal');
     }
 
-    // Cập nhật text hiển thị Ngày Âm bên dưới Input Date
     function updateFormLunarDate() {
         const dateVal = document.getElementById('inpDate').value;
         if(!dateVal) return;
@@ -587,26 +629,35 @@
     function saveAppointment() {
         const id = document.getElementById('inpId').value;
         const customer = document.getElementById('inpCustomer').value.trim();
+        const guestCount = parseInt(document.getElementById('inpGuestCount').value) || 1;
         const date = document.getElementById('inpDate').value;
         const time = document.getElementById('inpTime').value;
         const pkg = document.getElementById('inpPackage').value.trim();
         const location = document.getElementById('inpLocation').value.trim();
         const note = document.getElementById('inpNote').value.trim();
 
+        // Get Source
+        let source = '';
+        const radios = document.getElementsByName('sourceType');
+        for(let r of radios) { if(r.checked) source = r.value; }
+        if(source === 'Khác') {
+            source = document.getElementById('inpSourceOther').value.trim() || 'Khác';
+        }
+
         if (!customer || !date || !time) {
-            alert('Vui lòng nhập đủ tên, ngày và giờ!');
+            alert('Vui lòng nhập đủ tên khách, ngày và giờ!');
             return;
         }
 
         if (id) {
             const index = appointments.findIndex(a => a.id === id);
             if (index > -1) {
-                appointments[index] = { ...appointments[index], customer, date, time, package: pkg, location, note };
+                appointments[index] = { ...appointments[index], customer, guestCount, source, date, time, package: pkg, location, note };
             }
         } else {
             appointments.push({
                 id: 'app_' + Date.now(),
-                customer, date, time, package: pkg, location, note,
+                customer, guestCount, source, date, time, package: pkg, location, note,
                 status: 'pending', amount: 0
             });
         }
@@ -616,40 +667,42 @@
         selectDate(new Date(date)); 
     }
 
-    // --- DETAIL MODAL LOGIC ---
+    // --- DETAIL MODAL LOGIC (TICKET VIEW) ---
     function openDetailModal(id) {
         currentActionId = id;
         const app = appointments.find(a => a.id === id);
         if(!app) return;
 
-        document.getElementById('detCustomer').innerText = app.customer;
-        
+        // Điền dữ liệu vào form Phiếu chốt lịch
+        document.getElementById('capCustomer').innerText = app.customer;
         const [y, m, d] = app.date.split('-');
-        document.getElementById('detDateTime').innerText = `${app.time} - Ngày ${d}/${m}/${y}`;
-        document.getElementById('detPackage').innerText = app.package || 'Không có';
-        document.getElementById('detLocation').innerText = app.location || 'Không có địa chỉ';
-        document.getElementById('detNote').innerText = app.note || 'Không có ghi chú';
+        document.getElementById('capDate').innerText = `${d}/${m}/${y}`;
+        
+        const lunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
+        document.getElementById('capLunarDate').innerText = `${lunar.day}/${lunar.month}`;
+
+        document.getElementById('capTime').innerText = app.time;
+        document.getElementById('capPackage').innerText = app.package || 'Tự do';
+        document.getElementById('capGuest').innerText = app.guestCount || 1;
+        document.getElementById('capLocation').innerText = app.location || 'Tại tiệm';
+        
+        let noteText = app.note || 'Không';
+        if(app.source) noteText += ` 
+        (Nguồn khách: ${app.source})`;
+        document.getElementById('capNote').innerText = noteText;
 
         const badge = document.getElementById('detStatusBadge');
         if (app.status === 'completed') {
-            badge.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Đã hoàn thành (${formatMoney(app.amount)})`;
-            badge.className = "mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white shadow";
+            badge.innerText = "Đã Hoàn Thành";
+            badge.className = "absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg";
             document.getElementById('btnComplete').style.display = 'none';
         } else {
-            badge.innerHTML = `<i class="fas fa-clock mr-1"></i> Chờ phục vụ`;
-            badge.className = "mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-white/20 text-white";
+            badge.innerText = "Chờ Phục Vụ";
+            badge.className = "absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg";
             document.getElementById('btnComplete').style.display = 'flex';
         }
 
-        const btnMap = document.getElementById('btnMap');
-        if (app.location) {
-            btnMap.style.display = 'flex';
-            const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(app.location)}`;
-            btnMap.onclick = () => window.open(mapUrl, '_blank');
-        } else {
-            btnMap.style.display = 'none';
-        }
-
+        // Gán sự kiện cho các nút
         document.getElementById('btnEdit').onclick = () => openFormModal(id);
         document.getElementById('btnDelete').onclick = () => {
             if(confirm('Bạn có chắc muốn xóa lịch này vĩnh viễn?')) {
@@ -663,46 +716,8 @@
             closeModal('detailModal');
             openMoneyModal(id, app.customer);
         };
-        document.getElementById('btnCapture').onclick = () => captureScreenshot(app);
 
         openModal('detailModal');
-    }
-
-    async function captureScreenshot(app) {
-        const [y, m, d] = app.date.split('-');
-        document.getElementById('capCustomer').innerText = app.customer;
-        document.getElementById('capDate').innerText = `${d}/${m}/${y}`;
-        
-        // Cập nhật ngày Âm Lịch vào ảnh chụp
-        const lunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
-        document.getElementById('capLunarDate').innerText = `${lunar.day}/${lunar.month}`;
-
-        document.getElementById('capTime').innerText = app.time;
-        document.getElementById('capPackage').innerText = app.package || 'Tự do';
-        document.getElementById('capLocation').innerText = app.location || '';
-        document.getElementById('capNote').innerText = app.note || 'Không';
-
-        const btn = document.getElementById('btnCapture');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>Đang tạo ảnh...</span>`;
-
-        try {
-            const captureEl = document.getElementById('captureCard');
-            const canvas = await html2canvas(captureEl, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-            const image = canvas.toDataURL("image/png");
-            
-            const link = document.createElement('a');
-            link.href = image;
-            link.download = `ChotLich_${app.customer.replace(/\s+/g, '_')}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-        } catch (error) {
-            alert('Không thể tạo ảnh. Vui lòng thử lại.');
-        } finally {
-            btn.innerHTML = originalText;
-        }
     }
 
     // --- MONEY COMPLETION LOGIC ---
@@ -785,7 +800,7 @@
 
     // --- IMPORT / EXPORT DATA (SYNC) ---
     function exportData() {
-        const data = localStorage.getItem('makeup_appointments_v2') || '[]';
+        const data = localStorage.getItem('makeup_appointments_v3') || '[]';
         const blob = new Blob([data], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -829,7 +844,7 @@
     }
 
     // --- UTILS ---
-    function saveData() { localStorage.setItem('makeup_appointments_v2', JSON.stringify(appointments)); }
+    function saveData() { localStorage.setItem('makeup_appointments_v3', JSON.stringify(appointments)); }
     function formatDateStr(date) {
         const y = date.getFullYear();
         const m = String(date.getMonth() + 1).padStart(2, '0');
