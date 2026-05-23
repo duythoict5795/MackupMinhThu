@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lịch Trang Điểm Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- html2canvas for screenshots -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: '#f43f5e', // rose-500
+                        secondary: '#ffe4e6', // rose-100
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f3f4f6; }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        
+        .app-container {
+            max-width: 480px; margin: 0 auto; background-color: #fff;
+            min-height: 100vh; position: relative; box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; overflow-x: hidden;
+        }
+
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+
+        .calendar-cell {
+            aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-radius: 12px; cursor: pointer; transition: all 0.2s; position: relative;
+        }
+        
+        .calendar-cell.active { background-color: #f43f5e; color: white; box-shadow: 0 4px 6px -1px rgba(244, 63, 94, 0.4); }
+        .calendar-cell:not(.active):not(.empty):hover { background-color: #ffe4e6; }
+        .calendar-cell.empty { background-color: transparent; cursor: default; }
+        
+        /* Chỉnh lại font size để chứa được Tháng Âm Lịch */
+        .lunar-date { font-size: 0.6rem; margin-top: -2px; letter-spacing: -0.5px; }
+        .active .lunar-date { color: #ffe4e6; }
+        .lunar-date.highlight { color: #ef4444; font-weight: bold; }
+        .active .lunar-date.highlight { color: #fff; }
+        
+        /* Badge số lượng trên góc ô lịch */
+        .event-badge {
+            position: absolute; top: -4px; right: -4px; width: 18px; height: 18px;
+            border-radius: 50%; font-size: 10px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 20; border: 2px solid #fff;
+        }
+
+        .tab-content { display: none; flex: 1; overflow-y: auto; padding-bottom: 80px; }
+        .tab-content.active { display: block; }
+        
+        /* Phiếu chốt lịch ẩn để chụp */
+        #captureCard {
+            position: fixed; top: -2000px; left: 0; width: 400px; background: white;
+            padding: 24px; border-radius: 16px; box-sizing: border-box; font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <!-- Tab Lịch (Calendar) -->
+    <div id="tab-calendar" class="tab-content active">
+        <div class="bg-primary text-white p-4 rounded-b-3xl shadow-md sticky top-0 z-10">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-xl font-bold">Lịch Makeup</h1>
+                <div class="flex space-x-2">
+                    <!-- Nút Backup/Restore -->
+                    <button onclick="openModal('syncModal')" class="bg-white/20 text-white w-8 h-8 rounded-full flex items-center justify-center shadow backdrop-blur-sm">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <!-- Nút Thêm Mới -->
+                    <button onclick="openFormModal()" class="bg-white text-primary w-8 h-8 rounded-full flex items-center justify-center shadow">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex justify-between items-center bg-white/20 rounded-xl p-2 backdrop-blur-sm">
+                <button onclick="changeMonth(-1)" class="p-2 w-10"><i class="fas fa-chevron-left"></i></button>
+                <h2 id="monthYearText" class="font-semibold text-lg text-center flex-1">Tháng 5, 2026</h2>
+                <button onclick="changeMonth(1)" class="p-2 w-10"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+        <div class="p-4">
+            <div class="calendar-grid mb-2 text-center text-xs font-semibold text-gray-400">
+                <div class="text-red-400">CN</div><div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div class="text-primary">T7</div>
+            </div>
+            <div id="calendarDays" class="calendar-grid text-sm font-medium"></div>
+        </div>
+
+        <div class="p-4 bg-gray-50 flex-1 rounded-t-3xl min-h-[350px]">
+            <div class="flex justify-between items-end mb-4">
+                <div>
+                    <h3 class="font-bold text-gray-800 text-lg" id="selectedDateTitle">Hôm nay</h3>
+                    <p class="text-xs text-gray-500" id="selectedLunarTitle">Âm lịch: ...</p>
+                </div>
+            </div>
+            <div id="appointmentList" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- Tab Thống Kê -->
+    <div id="tab-stats" class="tab-content bg-gray-50">
+        <div class="bg-primary text-white p-4 pb-12 rounded-b-3xl shadow-md">
+            <h1 class="text-xl font-bold mb-4 text-center">Thống Kê Doanh Thu</h1>
+            <div class="flex justify-center items-center space-x-4 bg-white/20 rounded-xl p-2 backdrop-blur-sm w-max mx-auto">
+                <button onclick="changeStatMonth(-1)" class="p-2 px-4"><i class="fas fa-chevron-left"></i></button>
+                <h2 id="statMonthYearText" class="font-semibold text-lg w-32 text-center">Tháng 5, 2026</h2>
+                <button onclick="changeStatMonth(1)" class="p-2 px-4"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+        <div class="px-4 -mt-8">
+            <div class="bg-white rounded-2xl shadow-lg p-6 text-center mb-6">
+                <p class="text-gray-500 text-sm mb-1">Tổng thu nhập tháng này</p>
+                <h3 id="totalRevenue" class="text-3xl font-bold text-primary">0 ₫</h3>
+                <p id="totalJobsText" class="text-xs text-gray-400 mt-2">Đã hoàn thành 0 lịch</p>
+            </div>
+            <h4 class="font-bold text-gray-700 mb-3 ml-1">Lịch đã hoàn thành</h4>
+            <div id="completedList" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="fixed bottom-0 w-full max-w-[480px] bg-white border-t border-gray-200 flex justify-around py-3 pb-safe z-40">
+        <button onclick="switchTab('calendar')" id="btn-tab-calendar" class="flex flex-col items-center w-1/2 text-primary transition-colors">
+            <i class="fas fa-calendar-alt text-xl mb-1"></i>
+            <span class="text-xs font-medium">Lịch</span>
+        </button>
+        <button onclick="switchTab('stats')" id="btn-tab-stats" class="flex flex-col items-center w-1/2 text-gray-400 transition-colors">
+            <i class="fas fa-chart-pie text-xl mb-1"></i>
+            <span class="text-xs font-medium">Thống kê</span>
+        </button>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- 1. Modal Thêm/Sửa Lịch -->
+    <div id="formModal" class="fixed inset-0 z-50 hidden flex items-end justify-center">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('formModal')"></div>
+        <div class="bg-white w-full max-w-[480px] rounded-t-3xl p-6 relative transform transition-transform translate-y-full flex flex-col max-h-[90vh]" id="formModalContent" style="transition: transform 0.3s ease-out;">
+            <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 shrink-0"></div>
+            <div class="flex justify-between items-center mb-4 shrink-0">
+                <h3 class="text-xl font-bold" id="formModalTitle">Thêm lịch Makeup</h3>
+                <button onclick="closeModal('formModal')" class="text-gray-400 p-2"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="space-y-4 overflow-y-auto pr-1 pb-4">
+                <input type="hidden" id="inpId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tên khách hàng *</label>
+                    <input type="text" id="inpCustomer" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white transition-colors" placeholder="Nhập tên khách...">
+                </div>
+                
+                <div class="flex space-x-3 items-start">
+                    <div class="w-1/2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ngày hẹn *</label>
+                        <input type="date" id="inpDate" onchange="updateFormLunarDate()" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-gray-700">
+                        <!-- Hiển thị ngày âm ngay dưới ngày dương -->
+                        <p id="formLunarDateText" class="text-xs text-primary font-medium mt-1 ml-1"><i class="fas fa-moon mr-1"></i> Âm lịch: ...</p>
+                    </div>
+                    <div class="w-1/2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Giờ *</label>
+                        <input type="time" id="inpTime" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-gray-700">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Gói Makeup</label>
+                    <input type="text" id="inpPackage" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="VD: Cô dâu, Tiệc, Kỷ yếu...">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Địa chỉ / Link định vị</label>
+                    <div class="relative">
+                        <input type="text" id="inpLocation" class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="Dán link Map hoặc tên đường...">
+                        <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú thêm</label>
+                    <textarea id="inpNote" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="SĐT, dị ứng mỹ phẩm..."></textarea>
+                </div>
+            </div>
+
+            <div class="pt-2 shrink-0">
+                <button onclick="saveAppointment()" class="w-full bg-primary text-white font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform shadow-lg shadow-primary/30">
+                    <i class="fas fa-save mr-2"></i> Lưu Lịch Hẹn
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Modal Xem Chi Tiết -->
+    <div id="detailModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('detailModal')"></div>
+        <div class="bg-white w-full max-w-sm rounded-3xl overflow-hidden relative scale-90 opacity-0 shadow-2xl" id="detailModalContent" style="transition: all 0.2s ease-out;">
+            
+            <div id="detailHeader" class="bg-gradient-to-r from-primary to-rose-400 p-6 text-white text-center relative">
+                <button onclick="closeModal('detailModal')" class="absolute top-4 right-4 w-8 h-8 bg-black/20 rounded-full flex items-center justify-center backdrop-blur-sm"><i class="fas fa-times"></i></button>
+                <div class="w-16 h-16 bg-white/20 rounded-full mx-auto mb-2 flex items-center justify-center text-3xl">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h2 id="detCustomer" class="text-2xl font-bold">Tên Khách</h2>
+                <div id="detStatusBadge" class="mt-2 inline-block px-3 py-1 rounded-full text-xs font-semibold bg-white/20"></div>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="flex items-center text-gray-700">
+                    <div class="w-10 text-primary/70 text-center"><i class="fas fa-clock text-xl"></i></div>
+                    <div>
+                        <p class="text-sm text-gray-500">Thời gian</p>
+                        <p id="detDateTime" class="font-semibold">...</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center text-gray-700">
+                    <div class="w-10 text-primary/70 text-center"><i class="fas fa-box-open text-xl"></i></div>
+                    <div>
+                        <p class="text-sm text-gray-500">Gói Makeup</p>
+                        <p id="detPackage" class="font-semibold">...</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start text-gray-700">
+                    <div class="w-10 text-primary/70 text-center pt-1"><i class="fas fa-map-marked-alt text-xl"></i></div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500">Địa chỉ</p>
+                        <p id="detLocation" class="font-semibold break-words pr-2">...</p>
+                    </div>
+                    <button id="btnMap" class="w-10 h-10 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center hover:bg-blue-100 shrink-0">
+                        <i class="fas fa-location-arrow"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-start text-gray-700">
+                    <div class="w-10 text-primary/70 text-center pt-1"><i class="fas fa-align-left text-xl"></i></div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500">Ghi chú</p>
+                        <p id="detNote" class="font-medium text-sm text-gray-600 bg-gray-50 p-2 rounded-lg mt-1 min-h-[40px]">...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-2">
+                <button id="btnCapture" class="py-2.5 bg-indigo-50 text-indigo-600 font-semibold rounded-xl flex items-center justify-center space-x-2">
+                    <i class="fas fa-camera"></i> <span>Chốt lịch</span>
+                </button>
+                <button id="btnEdit" class="py-2.5 bg-orange-50 text-orange-500 font-semibold rounded-xl flex items-center justify-center space-x-2">
+                    <i class="fas fa-pen"></i> <span>Sửa</span>
+                </button>
+                <button id="btnComplete" class="py-2.5 bg-green-500 text-white font-semibold rounded-xl flex items-center justify-center space-x-2 col-span-2 shadow-md shadow-green-500/30">
+                    <i class="fas fa-check-circle"></i> <span>Đã xong & Tính tiền</span>
+                </button>
+                <button id="btnDelete" class="py-2.5 bg-red-50 text-red-500 font-semibold rounded-xl flex items-center justify-center space-x-2 col-span-2 mt-1">
+                    <i class="fas fa-trash-alt"></i> <span>Xóa lịch này</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Modal Nhập Tiền -->
+    <div id="moneyModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('moneyModal')"></div>
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 relative scale-90 opacity-0" id="moneyModalContent" style="transition: all 0.2s ease-out;">
+            <div class="text-center mb-4">
+                <div class="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h3 class="text-xl font-bold">Thanh toán</h3>
+                <p class="text-sm text-gray-500 mt-1">Nhập số tiền cho <span id="moneyCustomerName" class="font-semibold text-gray-800"></span></p>
+            </div>
+            
+            <div class="mb-5">
+                <div class="relative">
+                    <input type="number" id="inpMoney" class="w-full text-center text-2xl font-bold bg-gray-100 rounded-xl px-4 py-4 outline-none focus:ring-2 focus:ring-green-500/50" placeholder="0">
+                    <span class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-bold">₫</span>
+                </div>
+                <div class="flex gap-2 mt-3 overflow-x-auto pb-1">
+                    <button onclick="setMoney(200000)" class="px-3 py-1 bg-gray-100 text-sm rounded-full shrink-0">200k</button>
+                    <button onclick="setMoney(350000)" class="px-3 py-1 bg-gray-100 text-sm rounded-full shrink-0">350k</button>
+                    <button onclick="setMoney(500000)" class="px-3 py-1 bg-gray-100 text-sm rounded-full shrink-0">500k</button>
+                    <button onclick="setMoney(1000000)" class="px-3 py-1 bg-gray-100 text-sm rounded-full shrink-0">1 Triệu</button>
+                </div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button onclick="closeModal('moneyModal')" class="w-1/2 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl">Hủy</button>
+                <button onclick="confirmCompletion()" class="w-1/2 bg-green-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-500/30">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Modal Đồng Bộ (Sync/Backup) -->
+    <div id="syncModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center p-4">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('syncModal')"></div>
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 relative scale-90 opacity-0" id="syncModalContent" style="transition: all 0.2s ease-out;">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-xl font-bold">Chuyển Dữ Liệu</h3>
+                <button onclick="closeModal('syncModal')" class="text-gray-400"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <h4 class="font-bold text-blue-700 mb-1"><i class="fas fa-file-export mr-1"></i> Máy Cũ (Lưu Dữ Liệu)</h4>
+                    <p class="text-xs text-blue-600 mb-3">Tải toàn bộ lịch hẹn về điện thoại dưới dạng file để gửi sang máy khác.</p>
+                    <button onclick="exportData()" class="w-full bg-blue-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">
+                        Xuất file dữ liệu
+                    </button>
+                </div>
+
+                <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                    <h4 class="font-bold text-green-700 mb-1"><i class="fas fa-file-import mr-1"></i> Máy Mới (Nhập Dữ Liệu)</h4>
+                    <p class="text-xs text-green-600 mb-3">Chọn file bạn đã lưu từ máy cũ để khôi phục toàn bộ lịch hẹn.</p>
+                    <button onclick="document.getElementById('importFile').click()" class="w-full bg-green-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">
+                        Nhập file dữ liệu
+                    </button>
+                    <!-- Input ẩn -->
+                    <input type="file" id="importFile" hidden accept=".json" onchange="importData(event)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- THẺ ẨN ĐỂ CHỤP ẢNH PHIẾU CHỐT LỊCH CHUYÊN NGHIỆP -->
+<div id="captureCard">
+    <div style="border: 2px dashed #f43f5e; border-radius: 12px; padding: 20px; background: #fffcfd;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="display: inline-flex; justify-content: center; align-items: center; width: 50px; height: 50px; background: #f43f5e; border-radius: 50%; color: white; font-size: 24px; margin-bottom: 10px;">
+                <i class="fas fa-magic"></i>
+            </div>
+            <h2 style="margin: 0; color: #f43f5e; font-size: 24px; font-weight: bold;">PHIẾU CHỐT LỊCH</h2>
+            <p style="margin: 5px 0 0; color: #6b7280; font-size: 14px;">Makeup & Styling</p>
+        </div>
+        
+        <div style="border-top: 1px solid #fce7f3; padding-top: 15px; margin-bottom: 15px;">
+            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Khách hàng:</strong> <span id="capCustomer" style="color: #111827;"></span></p>
+            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Ngày hẹn:</strong> <span id="capDate" style="color: #111827;"></span></p>
+            <p style="margin: 0 0 8px; font-size: 15px; color: #374151;"><strong>Giờ hẹn:</strong> <span id="capTime" style="color: #f43f5e; font-weight: bold; font-size: 18px;"></span></p>
+        </div>
+
+        <div style="background: #fff1f2; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+            <p style="margin: 0 0 5px; font-size: 14px; color: #881337;"><strong><i class="fas fa-box-open"></i> Gói Makeup:</strong> <span id="capPackage"></span></p>
+            <p style="margin: 0; font-size: 14px; color: #881337;"><strong><i class="fas fa-map-marker-alt"></i> Địa chỉ:</strong> <span id="capLocation"></span></p>
+        </div>
+        
+        <p style="margin: 0 0 15px; font-size: 14px; color: #4b5563; font-style: italic;"><strong style="font-style: normal;">Ghi chú:</strong> <span id="capNote"></span></p>
+
+        <div style="text-align: center; border-top: 1px dashed #f9a8d4; padding-top: 15px;">
+            <p style="margin: 0; color: #f43f5e; font-weight: bold;">Cảm ơn bạn đã tin tưởng và lựa chọn!</p>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPT LOGIC -->
+<script>
+    // --- LUNAR CALENDAR (Rút gọn) ---
+    const LunarCal = (function() {
+        function getLunarDate(dd, mm, yy) {
+            const baseDate = new Date(1900, 0, 31);
+            const currentDate = new Date(yy, mm - 1, dd);
+            const diffDays = Math.floor((currentDate - baseDate) / (1000 * 60 * 60 * 24));
+            let daysLeft = diffDays;
+            let lunarDaysCount = (daysLeft % 29.53059);
+            let lunarDay = Math.floor(lunarDaysCount) + 1;
+            if(lunarDay > 30) lunarDay = 1;
+            let totalMonths = Math.floor(daysLeft / 29.53059);
+            let lunarMonth = (totalMonths % 12) + 1;
+            return { day: lunarDay, month: lunarMonth };
+        }
+        return { getLunarDate };
+    })();
+</script>
+
+<script>
+    // --- APP STATE ---
+    let currentDate = new Date();
+    let displayMonth = currentDate.getMonth();
+    let displayYear = currentDate.getFullYear();
+    let selectedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    
+    let statMonth = currentDate.getMonth();
+    let statYear = currentDate.getFullYear();
+
+    let appointments = JSON.parse(localStorage.getItem('makeup_appointments_v2')) || [];
+    let currentActionId = null;
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('inpDate').valueAsDate = new Date();
+        renderCalendar();
+        renderAppointments();
+        renderStats();
+    });
+
+    // --- CALENDAR LOGIC ---
+    function renderCalendar() {
+        const monthYearText = document.getElementById('monthYearText');
+        monthYearText.innerText = `Tháng ${displayMonth + 1}, ${displayYear}`;
+        const calendarDays = document.getElementById('calendarDays');
+        calendarDays.innerHTML = '';
+
+        const firstDay = new Date(displayYear, displayMonth, 1).getDay();
+        const daysInMonth = new Date(displayYear, displayMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            const emptyCell = document.createElement('div');
+            emptyCell.className = 'calendar-cell empty';
+            calendarDays.appendChild(emptyCell);
+        }
+
+        for (let i = 1; i <= daysInMonth; i++) {
+            const cellDate = new Date(displayYear, displayMonth, i);
+            const dateStr = formatDateStr(cellDate);
+            const isToday = isSameDate(cellDate, new Date());
+            const isSelected = isSameDate(cellDate, selectedDate);
+            
+            // Lấy ngày âm và LUÔN LUÔN in định dạng Ngày/Tháng
+            const lunar = LunarCal.getLunarDate(i, displayMonth + 1, displayYear);
+            let lunarText = `${lunar.day}/${lunar.month}`;
+            const isHighlightLunar = (lunar.day === 1 || lunar.day === 15);
+
+            const dailyApps = appointments.filter(app => app.date === dateStr);
+            let badgeHtml = '';
+            if (dailyApps.length > 0) {
+                const isAllDone = dailyApps.every(app => app.status === 'completed');
+                const badgeColor = isAllDone ? 'bg-green-500 border-green-500' : 'bg-red-500 border-red-500';
+                badgeHtml = `<div class="event-badge ${badgeColor}">${dailyApps.length}</div>`;
+            }
+
+            const cell = document.createElement('div');
+            cell.className = `calendar-cell ${isSelected ? 'active' : ''} ${isToday && !isSelected ? 'border border-primary text-primary' : ''}`;
+            cell.onclick = () => selectDate(cellDate);
+
+            cell.innerHTML = `
+                <span class="z-10 font-bold">${i}</span>
+                <span class="lunar-date ${isHighlightLunar ? 'highlight' : 'text-gray-400'} z-10">${lunarText}</span>
+                ${badgeHtml}
+            `;
+            calendarDays.appendChild(cell);
+        }
+    }
+
+    function changeMonth(offset) {
+        displayMonth += offset;
+        if (displayMonth > 11) { displayMonth = 0; displayYear++; }
+        if (displayMonth < 0) { displayMonth = 11; displayYear--; }
+        renderCalendar();
+    }
+
+    function selectDate(date) {
+        selectedDate = date;
+        document.getElementById('inpDate').value = formatDateStr(date);
+        updateFormLunarDate(); // Cập nhật ngày âm trong form nếu đang mở
+        renderCalendar(); 
+        renderAppointments();
+    }
+
+    // --- APPOINTMENTS LIST LOGIC ---
+    function renderAppointments() {
+        const titleEl = document.getElementById('selectedDateTitle');
+        const lunarTitleEl = document.getElementById('selectedLunarTitle');
+        const listEl = document.getElementById('appointmentList');
+
+        const isToday = isSameDate(selectedDate, new Date());
+        const dayOfWeek = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][selectedDate.getDay()];
+        titleEl.innerText = isToday ? `Hôm nay, ${selectedDate.getDate()} thg ${selectedDate.getMonth()+1}` : `${dayOfWeek}, ${selectedDate.getDate()}/${selectedDate.getMonth()+1}`;
+        
+        const lunar = LunarCal.getLunarDate(selectedDate.getDate(), selectedDate.getMonth() + 1, selectedDate.getFullYear());
+        lunarTitleEl.innerText = `Âm lịch: Ngày ${lunar.day} tháng ${lunar.month}`;
+
+        const targetDateStr = formatDateStr(selectedDate);
+        const dailyApps = appointments.filter(app => app.date === targetDateStr);
+        dailyApps.sort((a, b) => a.time.localeCompare(b.time));
+
+        listEl.innerHTML = '';
+        if (dailyApps.length === 0) {
+            listEl.innerHTML = `
+                <div class="text-center py-10 text-gray-400 bg-white rounded-2xl border border-dashed border-gray-300">
+                    <i class="fas fa-calendar-times text-4xl mb-3 opacity-50"></i>
+                    <p class="text-sm">Trống lịch</p>
+                    <button onclick="openFormModal()" class="mt-3 text-primary text-sm font-semibold hover:underline">Thêm lịch ngay</button>
+                </div>`;
+            return;
+        }
+
+        dailyApps.forEach(app => {
+            const isCompleted = app.status === 'completed';
+            const card = document.createElement('div');
+            card.className = `bg-white p-4 rounded-2xl shadow-sm border-l-4 ${isCompleted ? 'border-green-400 opacity-80' : 'border-primary'} flex justify-between items-center active:scale-[0.98] transition-transform`;
+            card.onclick = () => openDetailModal(app.id);
+
+            let statusHtml = !isCompleted 
+                ? `<span class="w-3 h-3 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500/50"></span>` 
+                : `<i class="fas fa-check-circle text-green-500 text-lg"></i>`;
+
+            card.innerHTML = `
+                <div class="flex items-center space-x-3 w-full pr-2">
+                    <div class="bg-gray-100 px-3 py-2 rounded-xl text-center shrink-0 border border-gray-200">
+                        <span class="block text-sm font-bold text-gray-800">${app.time}</span>
+                    </div>
+                    <div class="truncate flex-1">
+                        <h4 class="font-bold text-gray-800 text-base truncate">${app.customer}</h4>
+                        <p class="text-xs text-gray-500 truncate flex items-center mt-0.5">
+                            <i class="fas fa-map-marker-alt text-gray-400 mr-1 w-3 text-center"></i> 
+                            ${app.location || 'Chưa có địa chỉ'}
+                        </p>
+                    </div>
+                    <div class="shrink-0 flex items-center justify-center w-8 h-8">
+                        ${statusHtml}
+                    </div>
+                </div>
+            `;
+            listEl.appendChild(card);
+        });
+    }
+
+    // --- FORM LOGIC (ADD / EDIT) ---
+    function openFormModal(id = null) {
+        const isEdit = id !== null;
+        document.getElementById('formModalTitle').innerText = isEdit ? 'Sửa lịch hẹn' : 'Thêm lịch Makeup';
+        
+        if (isEdit) {
+            const app = appointments.find(a => a.id === id);
+            document.getElementById('inpId').value = app.id;
+            document.getElementById('inpCustomer').value = app.customer;
+            document.getElementById('inpDate').value = app.date;
+            document.getElementById('inpTime').value = app.time;
+            document.getElementById('inpPackage').value = app.package || '';
+            document.getElementById('inpLocation').value = app.location || '';
+            document.getElementById('inpNote').value = app.note || '';
+        } else {
+            document.getElementById('inpId').value = '';
+            document.getElementById('inpCustomer').value = '';
+            document.getElementById('inpTime').value = '';
+            document.getElementById('inpPackage').value = '';
+            document.getElementById('inpLocation').value = '';
+            document.getElementById('inpNote').value = '';
+            document.getElementById('inpDate').value = formatDateStr(selectedDate);
+        }
+        
+        updateFormLunarDate(); // Cập nhật text âm lịch
+        closeModal('detailModal');
+        openModal('formModal');
+    }
+
+    // Cập nhật text hiển thị Ngày Âm bên dưới Input Date
+    function updateFormLunarDate() {
+        const dateVal = document.getElementById('inpDate').value;
+        if(!dateVal) return;
+        const [y, m, d] = dateVal.split('-');
+        const lunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
+        document.getElementById('formLunarDateText').innerHTML = `<i class="fas fa-moon mr-1"></i> Âm lịch: Ngày ${lunar.day} tháng ${lunar.month}`;
+    }
+
+    function saveAppointment() {
+        const id = document.getElementById('inpId').value;
+        const customer = document.getElementById('inpCustomer').value.trim();
+        const date = document.getElementById('inpDate').value;
+        const time = document.getElementById('inpTime').value;
+        const pkg = document.getElementById('inpPackage').value.trim();
+        const location = document.getElementById('inpLocation').value.trim();
+        const note = document.getElementById('inpNote').value.trim();
+
+        if (!customer || !date || !time) {
+            alert('Vui lòng nhập đủ tên, ngày và giờ!');
+            return;
+        }
+
+        if (id) {
+            const index = appointments.findIndex(a => a.id === id);
+            if (index > -1) {
+                appointments[index] = { ...appointments[index], customer, date, time, package: pkg, location, note };
+            }
+        } else {
+            appointments.push({
+                id: 'app_' + Date.now(),
+                customer, date, time, package: pkg, location, note,
+                status: 'pending', amount: 0
+            });
+        }
+
+        saveData();
+        closeModal('formModal');
+        selectDate(new Date(date)); 
+    }
+
+    // --- DETAIL MODAL LOGIC ---
+    function openDetailModal(id) {
+        currentActionId = id;
+        const app = appointments.find(a => a.id === id);
+        if(!app) return;
+
+        document.getElementById('detCustomer').innerText = app.customer;
+        
+        const [y, m, d] = app.date.split('-');
+        document.getElementById('detDateTime').innerText = `${app.time} - Ngày ${d}/${m}/${y}`;
+        document.getElementById('detPackage').innerText = app.package || 'Không có';
+        document.getElementById('detLocation').innerText = app.location || 'Không có địa chỉ';
+        document.getElementById('detNote').innerText = app.note || 'Không có ghi chú';
+
+        const badge = document.getElementById('detStatusBadge');
+        if (app.status === 'completed') {
+            badge.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Đã hoàn thành (${formatMoney(app.amount)})`;
+            badge.className = "mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white shadow";
+            document.getElementById('btnComplete').style.display = 'none';
+        } else {
+            badge.innerHTML = `<i class="fas fa-clock mr-1"></i> Chờ phục vụ`;
+            badge.className = "mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-white/20 text-white";
+            document.getElementById('btnComplete').style.display = 'flex';
+        }
+
+        const btnMap = document.getElementById('btnMap');
+        if (app.location) {
+            btnMap.style.display = 'flex';
+            const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(app.location)}`;
+            btnMap.onclick = () => window.open(mapUrl, '_blank');
+        } else {
+            btnMap.style.display = 'none';
+        }
+
+        document.getElementById('btnEdit').onclick = () => openFormModal(id);
+        document.getElementById('btnDelete').onclick = () => {
+            if(confirm('Bạn có chắc muốn xóa lịch này vĩnh viễn?')) {
+                appointments = appointments.filter(a => a.id !== id);
+                saveData();
+                closeModal('detailModal');
+                renderCalendar(); renderAppointments(); renderStats();
+            }
+        };
+        document.getElementById('btnComplete').onclick = () => {
+            closeModal('detailModal');
+            openMoneyModal(id, app.customer);
+        };
+        document.getElementById('btnCapture').onclick = () => captureScreenshot(app);
+
+        openModal('detailModal');
+    }
+
+    async function captureScreenshot(app) {
+        const [y, m, d] = app.date.split('-');
+        document.getElementById('capCustomer').innerText = app.customer;
+        document.getElementById('capDate').innerText = `${d}/${m}/${y}`;
+        document.getElementById('capTime').innerText = app.time;
+        document.getElementById('capPackage').innerText = app.package || 'Tự do';
+        document.getElementById('capLocation').innerText = app.location || 'Tại Tiệm';
+        document.getElementById('capNote').innerText = app.note || 'Không';
+
+        const btn = document.getElementById('btnCapture');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span>Đang tạo ảnh...</span>`;
+
+        try {
+            const captureEl = document.getElementById('captureCard');
+            const canvas = await html2canvas(captureEl, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+            const image = canvas.toDataURL("image/png");
+            
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `ChotLich_${app.customer.replace(/\s+/g, '_')}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert('Đã lưu ảnh phiếu chốt lịch!');
+        } catch (error) {
+            alert('Không thể tạo ảnh. Vui lòng thử lại.');
+        } finally {
+            btn.innerHTML = originalText;
+        }
+    }
+
+    // --- MONEY COMPLETION LOGIC ---
+    function openMoneyModal(id, customerName) {
+        currentActionId = id;
+        document.getElementById('moneyCustomerName').innerText = customerName;
+        document.getElementById('inpMoney').value = '';
+        openModal('moneyModal');
+    }
+
+    function setMoney(val) { document.getElementById('inpMoney').value = val; }
+
+    function confirmCompletion() {
+        const amountStr = document.getElementById('inpMoney').value;
+        const amount = parseInt(amountStr) || 0;
+
+        const index = appointments.findIndex(a => a.id === currentActionId);
+        if (index > -1) {
+            appointments[index].status = 'completed';
+            appointments[index].amount = amount;
+            saveData();
+        }
+
+        closeModal('moneyModal');
+        renderCalendar();
+        renderAppointments();
+        renderStats();
+    }
+
+    // --- STATS LOGIC ---
+    function renderStats() {
+        const statText = document.getElementById('statMonthYearText');
+        statText.innerText = `Tháng ${statMonth + 1}, ${statYear}`;
+
+        const monthStr = `${statYear}-${String(statMonth + 1).padStart(2, '0')}`;
+        const completedJobs = appointments.filter(app => app.status === 'completed' && app.date.startsWith(monthStr));
+        completedJobs.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+
+        const total = completedJobs.reduce((sum, app) => sum + app.amount, 0);
+
+        document.getElementById('totalRevenue').innerText = formatMoney(total);
+        document.getElementById('totalJobsText').innerText = `Đã hoàn thành ${completedJobs.length} lịch`;
+
+        const listEl = document.getElementById('completedList');
+        listEl.innerHTML = '';
+
+        if (completedJobs.length === 0) {
+            listEl.innerHTML = `<p class="text-center text-sm text-gray-400 mt-8"><i class="fas fa-box-open text-3xl mb-2 opacity-50"></i><br>Chưa có thu nhập tháng này</p>`;
+            return;
+        }
+
+        completedJobs.forEach(app => {
+            const [y, m, d] = app.date.split('-');
+            const div = document.createElement('div');
+            div.className = 'bg-white p-4 rounded-xl shadow-sm flex justify-between items-center';
+            div.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-secondary text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                        ${d}/${m}
+                    </div>
+                    <div class="truncate">
+                        <h4 class="font-bold text-gray-800 text-sm truncate">${app.customer}</h4>
+                        <p class="text-xs text-gray-500">${app.package || 'Makeup'} • ${app.time}</p>
+                    </div>
+                </div>
+                <div class="font-bold text-green-600 shrink-0 pl-2">
+                    +${formatMoneyShort(app.amount)}
+                </div>
+            `;
+            listEl.appendChild(div);
+        });
+    }
+
+    function changeStatMonth(offset) {
+        statMonth += offset;
+        if (statMonth > 11) { statMonth = 0; statYear++; }
+        if (statMonth < 0) { statMonth = 11; statYear--; }
+        renderStats();
+    }
+
+    // --- IMPORT / EXPORT DATA (SYNC) ---
+    function exportData() {
+        const data = localStorage.getItem('makeup_appointments_v2') || '[]';
+        const blob = new Blob([data], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = formatDateStr(new Date()).replace(/-/g, '');
+        a.download = `LichMakeup_Backup_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        closeModal('syncModal');
+        alert("Đã lưu file dữ liệu về máy thành công!");
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if(Array.isArray(importedData)) {
+                    if(confirm("Dữ liệu cũ trên máy này sẽ bị GHI ĐÈ bằng dữ liệu mới. Bạn có chắc chắn muốn tiếp tục?")) {
+                        appointments = importedData;
+                        saveData();
+                        renderCalendar();
+                        renderAppointments();
+                        renderStats();
+                        closeModal('syncModal');
+                        alert("Đồng bộ dữ liệu thành công!");
+                    }
+                } else {
+                    alert("File không đúng định dạng của ứng dụng!");
+                }
+            } catch(err) {
+                alert("Lỗi! Không thể đọc file này.");
+            }
+            event.target.value = ''; // Reset input file
+        };
+        reader.readAsText(file);
+    }
+
+    // --- UTILS ---
+    function saveData() { localStorage.setItem('makeup_appointments_v2', JSON.stringify(appointments)); }
+    function formatDateStr(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    function isSameDate(d1, d2) {
+        return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+    }
+    function formatMoney(amount) {
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    }
+    function formatMoneyShort(amount) {
+        if(amount >= 1000000) return (amount/1000000).toFixed(1).replace('.0','') + 'M';
+        if(amount >= 1000) return (amount/1000) + 'k';
+        return amount;
+    }
+
+    // --- UI CONTROLS ---
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.fixed.bottom-0 button').forEach(el => {
+            el.classList.remove('text-primary'); el.classList.add('text-gray-400');
+        });
+
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        const btn = document.getElementById(`btn-tab-${tabName}`);
+        btn.classList.remove('text-gray-400'); btn.classList.add('text-primary');
+        
+        if(tabName === 'stats') renderStats();
+        if(tabName === 'calendar') renderCalendar();
+    }
+
+    function openModal(id) {
+        const modal = document.getElementById(id);
+        const content = document.getElementById(id + 'Content');
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            if(id === 'formModal') content.style.transform = 'translateY(0)';
+            else { content.style.transform = 'scale(1)'; content.style.opacity = '1'; }
+        }, 10);
+    }
+
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        const content = document.getElementById(id + 'Content');
+        if(id === 'formModal') content.style.transform = 'translateY(100%)';
+        else { content.style.transform = 'scale(0.9)'; content.style.opacity = '0'; }
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+</script>
+</body>
+</html>
