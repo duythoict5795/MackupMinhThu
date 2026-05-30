@@ -47,8 +47,21 @@
         .calendar-cell:not(.active):not(.empty):hover { background-color: #ffe4e6; }
         .calendar-cell.empty { background-color: transparent; cursor: default; }
         
-        /* Cải thiện hiển thị lịch âm */
-        .lunar-date { font-size: 0.65rem; margin-top: -1px; letter-spacing: -0.5px; font-weight: 600; }
+        /* Đánh dấu ngày Nghỉ bằng dấu * */
+        .calendar-cell.day-off-mark::before {
+            content: '*';
+            position: absolute;
+            top: 2px;
+            left: 6px;
+            color: #ef4444;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1;
+            z-index: 10;
+        }
+        .calendar-cell.day-off-mark.active::before { color: #ffe4e6; }
+
+        .lunar-date { font-size: 0.6rem; margin-top: -2px; letter-spacing: -0.5px; }
         .active .lunar-date { color: #ffe4e6; }
         .lunar-date.highlight { color: #ef4444; font-weight: bold; }
         .active .lunar-date.highlight { color: #fff; }
@@ -63,13 +76,20 @@
         .tab-content { display: none; flex: 1; overflow-y: auto; padding-bottom: 80px; }
         .tab-content.active { display: block; }
         
-        /* Custom radio button styles */
-        .source-radio:checked + div {
-            background-color: #ffe4e6;
-            border-color: #f43f5e;
-            color: #f43f5e;
-            font-weight: 600;
+        .source-radio:checked + div, .cal-radio:checked + div, .interval-radio:checked + div {
+            background-color: #ffe4e6; border-color: #f43f5e; color: #f43f5e; font-weight: 600;
         }
+
+        /* Toggle Type (Makeup/Nghỉ) */
+        .type-toggle { display: flex; background: #f3f4f6; border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+        .type-btn { flex: 1; text-align: center; padding: 10px 0; border-radius: 999px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; color: #6b7280; }
+        .type-btn.active { background: white; color: #f43f5e; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+        /* Toggle switch cho Lặp lại */
+        .toggle-checkbox:checked { right: 0; border-color: #10B981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10B981; }
+        .toggle-checkbox { right: 0; z-index: 1; border-color: #e5e7eb; transition: all 0.3s; }
+        .toggle-label { width: 3rem; height: 1.5rem; background-color: #e5e7eb; border-radius: 9999px; transition: all 0.3s; }
     </style>
 </head>
 <body>
@@ -157,145 +177,168 @@
         <div class="modal-overlay absolute inset-0" onclick="closeModal('formModal')"></div>
         <div class="bg-white w-full max-w-[480px] rounded-t-3xl p-6 relative transform transition-transform translate-y-full flex flex-col max-h-[90vh]" id="formModalContent" style="transition: transform 0.3s ease-out;">
             <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 shrink-0"></div>
-            <div class="flex justify-between items-center mb-4 shrink-0">
-                <h3 class="text-xl font-bold" id="formModalTitle">Thêm lịch Makeup</h3>
-                <button onclick="closeModal('formModal')" class="text-gray-400 p-2"><i class="fas fa-times text-xl"></i></button>
-            </div>
             
+            <!-- Type Toggle -->
+            <div class="type-toggle shrink-0">
+                <div id="btnTypeMakeup" class="type-btn active" onclick="switchEventType('makeup')">💄 Khách Makeup</div>
+                <div id="btnTypeDayOff" class="type-btn" onclick="switchEventType('dayoff')">🏖️ Lịch Nghỉ</div>
+            </div>
+
             <div class="space-y-4 overflow-y-auto pr-1 pb-4">
                 <input type="hidden" id="inpId">
-                
-                <div class="flex space-x-3">
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tên khách hàng *</label>
-                        <input type="text" id="inpCustomer" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white transition-colors" placeholder="Nhập tên khách...">
-                    </div>
-                    <div class="w-24 shrink-0">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Số lượng</label>
-                        <input type="number" id="inpGuestCount" min="1" value="1" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-center text-gray-700">
-                    </div>
-                </div>
+                <input type="hidden" id="inpType" value="makeup">
 
-                <!-- Lựa chọn Nguồn Đặt -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Khách đặt qua đâu?</label>
-                    <div class="flex space-x-2 mb-2">
-                        <label class="cursor-pointer flex-1">
-                            <input type="radio" name="sourceType" value="Facebook" class="hidden source-radio" checked onchange="toggleSourceOther()">
-                            <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
-                                <i class="fab fa-facebook text-blue-600 mr-1"></i> Facebook
-                            </div>
-                        </label>
-                        <label class="cursor-pointer flex-1">
-                            <input type="radio" name="sourceType" value="Zalo" class="hidden source-radio" onchange="toggleSourceOther()">
-                            <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
-                                <i class="fas fa-comment text-blue-400 mr-1"></i> Zalo
-                            </div>
-                        </label>
-                        <label class="cursor-pointer flex-1">
-                            <input type="radio" name="sourceType" value="Khác" class="hidden source-radio" onchange="toggleSourceOther()">
-                            <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
-                                <i class="fas fa-ellipsis-h mr-1"></i> Khác
-                            </div>
-                        </label>
-                    </div>
-                    <!-- Ô nhập tay khi chọn Khác -->
-                    <input type="text" id="inpSourceOther" class="hidden w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 mt-1 outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Nhập nguồn khác (vd: Người quen, Tiktok...)">
-                </div>
-                
+                <!-- CHUNG: Ngày & Giờ -->
                 <div class="flex space-x-3 items-start">
                     <div class="w-1/2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Ngày hẹn *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ngày <span class="text-red-500">*</span></label>
                         <input type="date" id="inpDate" onchange="updateFormLunarDate()" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-gray-700">
                         <p id="formLunarDateText" class="text-xs text-primary font-medium mt-1 ml-1"><i class="fas fa-moon mr-1"></i> Âm lịch: ...</p>
                     </div>
                     <div class="w-1/2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Giờ *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" id="lblTime">Giờ hẹn <span class="text-red-500">*</span></label>
                         <input type="time" id="inpTime" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-gray-700">
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Gói Makeup</label>
-                    <input type="text" id="inpPackage" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="VD: Cô dâu, Tiệc, Kỷ yếu...">
-                </div>
+                <!-- KHU VỰC 1: DÀNH CHO MAKEUP -->
+                <div id="makeupSection" class="space-y-4 block">
+                    <div class="flex space-x-3">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tên khách hàng <span class="text-red-500">*</span></label>
+                            <input type="text" id="inpCustomer" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white transition-colors" placeholder="Nhập tên khách...">
+                        </div>
+                        <div class="w-24 shrink-0">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Số lượng</label>
+                            <input type="number" id="inpGuestCount" min="1" value="1" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 text-center text-gray-700">
+                        </div>
+                    </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Địa chỉ / Link định vị</label>
-                    <div class="relative">
-                        <input type="text" id="inpLocation" class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="Dán link Map hoặc tên đường...">
-                        <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Khách đặt qua đâu?</label>
+                        <div class="flex space-x-2 mb-2">
+                            <label class="cursor-pointer flex-1">
+                                <input type="radio" name="sourceType" value="Facebook" class="hidden source-radio" checked onchange="toggleSourceOther()">
+                                <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
+                                    <i class="fab fa-facebook text-blue-600 mr-1"></i> Facebook
+                                </div>
+                            </label>
+                            <label class="cursor-pointer flex-1">
+                                <input type="radio" name="sourceType" value="Zalo" class="hidden source-radio" onchange="toggleSourceOther()">
+                                <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
+                                    <i class="fas fa-comment text-blue-400 mr-1"></i> Zalo
+                                </div>
+                            </label>
+                            <label class="cursor-pointer flex-1">
+                                <input type="radio" name="sourceType" value="Khác" class="hidden source-radio" onchange="toggleSourceOther()">
+                                <div class="text-center py-2 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 transition-colors text-sm">
+                                    <i class="fas fa-ellipsis-h mr-1"></i> Khác
+                                </div>
+                            </label>
+                        </div>
+                        <input type="text" id="inpSourceOther" class="hidden w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 mt-1 outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Nhập nguồn khác...">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Gói Makeup</label>
+                        <input type="text" id="inpPackage" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="VD: Cô dâu, Tiệc, Kỷ yếu...">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Địa chỉ / Link định vị</label>
+                        <div class="relative">
+                            <input type="text" id="inpLocation" class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="Dán link Map hoặc tên đường...">
+                            <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú thêm</label>
+                        <textarea id="inpNote" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="SĐT, dị ứng mỹ phẩm..."></textarea>
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú thêm</label>
-                    <textarea id="inpNote" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 focus:bg-white" placeholder="SĐT, dị ứng mỹ phẩm..."></textarea>
+                <!-- KHU VỰC 2: DÀNH CHO LỊCH NGHỈ -->
+                <div id="dayOffSection" class="space-y-4 hidden bg-orange-50/50 p-4 rounded-2xl border border-orange-100">
+                    <div>
+                        <label class="block text-sm font-bold text-orange-800 mb-1">Vì sao bạn nghỉ? <span class="text-red-500">*</span></label>
+                        <textarea id="inpReason" rows="2" class="w-full bg-white border border-orange-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-400" placeholder="VD: Khám bệnh, Đi du lịch, Về quê..."></textarea>
+                    </div>
+
+                    <!-- Công tắc lặp lại -->
+                    <div class="flex items-center justify-between mt-4">
+                        <span class="text-sm font-bold text-gray-700"><i class="fas fa-redo text-orange-500 mr-2"></i> Lặp lại lịch nghỉ này?</span>
+                        <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" id="toggleRepeat" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" onchange="handleRepeatToggle()"/>
+                            <label for="toggleRepeat" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </div>
+
+                    <!-- Options lặp lại -->
+                    <div id="repeatOptions" class="hidden mt-3 pt-3 border-t border-orange-200 space-y-3">
+                        <!-- Chọn loại lịch -->
+                        <div class="flex space-x-2">
+                            <label class="cursor-pointer flex-1">
+                                <input type="radio" name="repeatCalType" value="solar" class="hidden cal-radio" checked>
+                                <div class="text-center py-2 border border-orange-200 rounded-lg bg-white text-gray-600 text-sm">Dương lịch</div>
+                            </label>
+                            <label class="cursor-pointer flex-1">
+                                <input type="radio" name="repeatCalType" value="lunar" class="hidden cal-radio">
+                                <div class="text-center py-2 border border-orange-200 rounded-lg bg-white text-gray-600 text-sm">Âm lịch</div>
+                            </label>
+                        </div>
+                        
+                        <!-- Chọn chu kỳ -->
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Chu kỳ lặp</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="repeatInterval" value="week" class="hidden interval-radio" checked>
+                                <div class="text-center py-2 border border-orange-200 rounded-lg bg-white text-gray-600 text-sm">Mỗi Tuần</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="repeatInterval" value="month" class="hidden interval-radio">
+                                <div class="text-center py-2 border border-orange-200 rounded-lg bg-white text-gray-600 text-sm">Mỗi Tháng</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="repeatInterval" value="3months" class="hidden interval-radio">
+                                <div class="text-center py-2 border border-orange-200 rounded-lg bg-white text-gray-600 text-sm">Mỗi 3 Tháng</div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="repeatInterval" value="year" class="hidden interval-radio">
+                                <div class="text-center py-2 border border-orange-200 rounded-lg bg-white text-gray-600 text-sm">Mỗi Năm</div>
+                            </label>
+                        </div>
+                        <p class="text-[11px] text-orange-600 italic">* Lịch lặp lại sẽ tự động xuất hiện trên Lịch của bạn vào các ngày tương ứng trong tương lai.</p>
+                    </div>
                 </div>
+
             </div>
 
             <div class="pt-2 shrink-0">
-                <button onclick="saveAppointment()" class="w-full bg-primary text-white font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform shadow-lg shadow-primary/30">
+                <button onclick="saveAppointment()" id="btnSaveForm" class="w-full bg-primary text-white font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform shadow-lg shadow-primary/30">
                     <i class="fas fa-save mr-2"></i> Lưu Lịch Hẹn
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 2. Modal Phiếu Chốt Lịch (ĐÃ CHỈNH NÚT X RA HOÀN TOÀN KHỎI PHIẾU) -->
+    <!-- 2. Modal Chi Tiết (Chung cho Makeup và Nghỉ) -->
     <div id="detailModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
         <div class="modal-overlay absolute inset-0" onclick="closeModal('detailModal')"></div>
-        
-        <!-- NÚT X ĐƯỢC DI CHUYỂN HOÀN TOÀN RA NGOÀI, GÓC TRÊN CÙNG MÀN HÌNH -->
-        <button onclick="closeModal('detailModal')" class="absolute top-6 right-6 z-[100] w-10 h-10 bg-gray-800/50 text-white rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/20 active:scale-95 transition-transform">
-            <i class="fas fa-times text-xl"></i>
-        </button>
+        <div class="bg-white w-full max-w-sm rounded-3xl overflow-hidden relative scale-90 opacity-0 shadow-2xl flex flex-col" id="detailModalContent" style="transition: all 0.2s ease-out;">
+            
+            <button onclick="closeModal('detailModal')" class="absolute top-3 right-3 z-10 w-8 h-8 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center"><i class="fas fa-times"></i></button>
 
-        <!-- Khối nội dung chính (Phiếu chốt) KHÔNG chứa nút X, chụp ảnh không bị dính -->
-        <div class="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col relative scale-90 opacity-0" id="detailModalContent" style="transition: all 0.2s ease-out;">
-            <!-- VÙNG CHỤP MÀN HÌNH -->
+            <!-- Giao diện Phiếu -->
             <div id="captureCard" class="p-5 bg-white relative">
-                <div class="border-2 border-dashed border-primary rounded-xl p-5 bg-rose-50/30 relative">
-                    <!-- Ribbon status -->
-                    <div id="detStatusBadge" class="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg"></div>
-
-                    <div class="text-center mb-4">
-                        <div class="inline-flex justify-center items-center w-12 h-12 bg-primary rounded-full text-white text-xl mb-2 shadow-md">
-                            <i class="fas fa-magic"></i>
-                        </div>
-                        <h2 class="m-0 text-primary text-2xl font-bold uppercase tracking-wide">Minh Thư Makeup</h2>
-                        <p class="m-0 mt-1 text-gray-500 text-sm font-medium">PHIẾU CHỐT LỊCH</p>
-                    </div>
-                    
-                    <div class="border-t border-rose-200 pt-4 mb-4">
-                        <p class="mb-2 text-[15px] text-gray-700"><strong>Khách hàng:</strong> <span id="capCustomer" class="text-gray-900 font-medium"></span></p>
-                        
-                        <p class="mb-2 text-[15px] text-gray-700">
-                            <strong>Ngày hẹn:</strong> <span id="capDate" class="text-gray-900 font-medium"></span> 
-                            <span class="text-[13px] text-primary ml-1">(Âm: <span id="capLunarDate"></span>)</span>
-                        </p>
-                        
-                        <p class="mb-2 text-[15px] text-gray-700"><strong>Giờ hẹn:</strong> <span id="capTime" class="text-primary font-bold text-lg"></span></p>
-                    </div>
-
-                    <div class="bg-rose-100/50 p-3 rounded-lg mb-4">
-                        <p class="mb-1 text-sm text-rose-900"><strong><i class="fas fa-box-open w-4"></i> Gói Makeup:</strong> <span id="capPackage"></span></p>
-                        <p class="mb-1 text-sm text-rose-900"><strong><i class="fas fa-users w-4"></i> Số lượng:</strong> <span id="capGuest"></span> khách</p>
-                        <p class="m-0 text-sm text-rose-900 break-words"><strong><i class="fas fa-map-marker-alt w-4"></i> Địa chỉ:</strong> <span id="capLocation"></span></p>
-                    </div>
-                    
-                    <p class="m-0 mb-4 text-sm text-gray-600 italic break-words"><strong class="not-italic">Ghi chú:</strong> <span id="capNote"></span></p>
-
-                    <div class="text-center border-t border-dashed border-rose-300 pt-4">
-                        <p class="m-0 text-primary font-bold text-sm">Cảm ơn bạn đã tin tưởng và lựa chọn!</p>
-                    </div>
-                </div>
+                <!-- Khu vực nội dung sẽ được render động bằng JS -->
+                <div id="detailDynamicContent"></div>
             </div>
 
-            <!-- Nút chức năng (không nằm trong vùng chụp ảnh) -->
-            <div class="p-4 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-2">
+            <!-- Nút chức năng -->
+            <div class="p-4 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-2" id="detailActionButtons">
                 <button id="btnEdit" class="py-2.5 bg-orange-50 text-orange-500 font-semibold rounded-xl flex items-center justify-center space-x-2">
-                    <i class="fas fa-pen"></i> <span>Sửa lịch</span>
+                    <i class="fas fa-pen"></i> <span>Sửa</span>
                 </button>
                 <button id="btnDelete" class="py-2.5 bg-red-50 text-red-500 font-semibold rounded-xl flex items-center justify-center space-x-2">
                     <i class="fas fa-trash-alt"></i> <span>Xóa</span>
@@ -341,6 +384,7 @@
 
     <!-- 4. Modal Đồng Bộ (Sync/Backup) -->
     <div id="syncModal" class="fixed inset-0 z-[80] hidden flex items-center justify-center p-4">
+        <!-- Nội dung Sync giữ nguyên -->
         <div class="modal-overlay absolute inset-0" onclick="closeModal('syncModal')"></div>
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 relative scale-90 opacity-0" id="syncModalContent" style="transition: all 0.2s ease-out;">
             <div class="flex justify-between items-center mb-5">
@@ -351,18 +395,14 @@
             <div class="space-y-4">
                 <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
                     <h4 class="font-bold text-blue-700 mb-1"><i class="fas fa-file-export mr-1"></i> Máy Cũ (Lưu Dữ Liệu)</h4>
-                    <p class="text-xs text-blue-600 mb-3">Tải toàn bộ lịch hẹn về điện thoại dưới dạng file để gửi sang máy khác.</p>
-                    <button onclick="exportData()" class="w-full bg-blue-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">
-                        Xuất file dữ liệu
-                    </button>
+                    <p class="text-xs text-blue-600 mb-3">Tải toàn bộ lịch hẹn về điện thoại dưới dạng file.</p>
+                    <button onclick="exportData()" class="w-full bg-blue-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">Xuất file dữ liệu</button>
                 </div>
 
                 <div class="bg-green-50 p-4 rounded-xl border border-green-100">
                     <h4 class="font-bold text-green-700 mb-1"><i class="fas fa-file-import mr-1"></i> Máy Mới (Nhập Dữ Liệu)</h4>
-                    <p class="text-xs text-green-600 mb-3">Chọn file bạn đã lưu từ máy cũ để khôi phục toàn bộ lịch hẹn.</p>
-                    <button onclick="document.getElementById('importFile').click()" class="w-full bg-green-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">
-                        Nhập file dữ liệu
-                    </button>
+                    <p class="text-xs text-green-600 mb-3">Chọn file bạn đã lưu từ máy cũ để khôi phục.</p>
+                    <button onclick="document.getElementById('importFile').click()" class="w-full bg-green-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">Nhập file dữ liệu</button>
                     <input type="file" id="importFile" hidden accept=".json" onchange="importData(event)">
                 </div>
             </div>
@@ -373,29 +413,51 @@
 
 <!-- SCRIPT LOGIC -->
 <script>
-    // --- LUNAR CALENDAR (BẢN MỚI CHUẨN XÁC, SỬ DỤNG API TRÌNH DUYỆT) ---
-    // Khắc phục triệt để lỗi lệch ngày và mất ngày 1, 16, 30 do thuật toán JDN cũ
+    // --- LUNAR CALENDAR THUẬT TOÁN HỒ NGỌC ĐỨC CHUẨN VIỆT NAM ---
     const LunarCal = (function() {
+        const PI = Math.PI;
+        function jdn(dd, mm, yy) {
+            let a = Math.floor((14 - mm) / 12); let y = yy + 4800 - a; let m = mm + 12 * a - 3;
+            return dd + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+        }
+        function getNewMoonDay(k, timeZone) {
+            const T = k / 1236.85; const T2 = T * T; const T3 = T2 * T; const dr = PI / 180;
+            let Jd = 2415020.75933 + 29.53058868 * k + 0.0001178 * T2 - 0.000000155 * T3 + 0.00033 * Math.sin((166.56 + 132.87 * T - 0.009173 * T2) * dr);
+            const M = 359.2242 + 29.10535608 * k - 0.0000333 * T2 - 0.00000347 * T3;
+            const Mprime = 306.0253 + 385.81691806 * k + 0.0107306 * T2 + 0.00001236 * T3;
+            const F = 21.2964 + 390.67050646 * k - 0.0016528 * T2 - 0.00000239 * T3;
+            const C = (0.1734 - 0.000393 * T) * Math.sin(M * dr) + 0.0021 * Math.sin(2 * M * dr) - 0.0004 * Math.sin(Mprime * dr) + 0.0005 * Math.sin(2 * F * dr);
+            const deltat = C - 0.0058 * Math.sin(Mprime * dr) + 0.0089 * Math.sin(2 * F * dr);
+            return Math.floor(Jd + deltat + 0.5 + timeZone / 24);
+        }
+        function getSunLongitude(dayNumber, timeZone) {
+            const T = (dayNumber - 2451545.0 - timeZone / 24) / 36525.0; const T2 = T * T; const dr = PI / 180;
+            let M = 357.5291 + 35999.0503 * T - 0.0001559 * T2 - 0.00000048 * T * T2;
+            let L0 = 280.4665 + 36000.7698 * T + 0.0003032 * T2;
+            let C = (1.9146 - 0.004817 * T - 0.000014 * T2) * Math.sin(dr * M) + (0.019993 - 0.000101 * T) * Math.sin(dr * 2 * M) + 0.00029 * Math.sin(dr * 3 * M);
+            let theta = L0 + C; while (theta > 360) theta -= 360; while (theta < 0) theta += 360;
+            return Math.floor(theta / 30);
+        }
+        function getLunarMonth11(yy, timeZone) {
+            let off = yy - 1900; let k = Math.floor(off * 12.3685); let nm = getNewMoonDay(k, timeZone);
+            let sunLong = getSunLongitude(nm, timeZone); if (sunLong >= 9) nm = getNewMoonDay(k - 1, timeZone);
+            return nm;
+        }
+        function getLeapMonthOffset(a11, timeZone) {
+            let k = Math.floor((a11 - 2415021.076998695) / 29.530588853 + 0.5); let last = 0; let i = 1;
+            let arc = getSunLongitude(getNewMoonDay(k, timeZone), timeZone);
+            do { last = arc; i++; arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone); } while (arc !== last && i < 14);
+            return i - 1;
+        }
         function getLunarDate(dd, mm, yy) {
-            try {
-                const date = new Date(yy, mm - 1, dd);
-                // Sử dụng API Intl chuẩn của trình duyệt để lấy lịch âm
-                const formatter = new Intl.DateTimeFormat('en-US', { 
-                    day: 'numeric', 
-                    month: 'numeric', 
-                    calendar: 'chinese' 
-                });
-                // Kết quả luôn trả về dạng "Tháng/Ngày" (VD: "4/7" -> mùng 7 tháng 4)
-                const formatted = formatter.format(date); 
-                
-                const matches = formatted.match(/\d+/g);
-                if (matches && matches.length >= 2) {
-                    return { day: parseInt(matches[1], 10), month: parseInt(matches[0], 10) };
-                }
-                return { day: dd, month: mm }; // Dự phòng
-            } catch (e) {
-                return { day: dd, month: mm }; // Trả về ngày dương nếu trình duyệt quá cũ
-            }
+            const timeZone = 7; let dayNumber = jdn(dd, mm, yy); let k = Math.floor((dayNumber - 2415021.076998695) / 29.530588853);
+            let monthStart = getNewMoonDay(k + 1, timeZone); if (monthStart > dayNumber) monthStart = getNewMoonDay(k, timeZone);
+            let a11 = getLunarMonth11(yy, timeZone); let b11 = a11;
+            if (a11 >= monthStart) a11 = getLunarMonth11(yy - 1, timeZone); else b11 = getLunarMonth11(yy + 1, timeZone);
+            let lunarDay = dayNumber - monthStart + 1; let diff = Math.floor((monthStart - a11) / 29); let lunarMonth = diff + 11;
+            if (b11 - a11 > 365) { let leapMonthDiff = getLeapMonthOffset(a11, timeZone); if (diff >= leapMonthDiff) lunarMonth--; }
+            if (lunarMonth > 12) lunarMonth -= 12; if (lunarMonth >= 11 && diff < 4) yy -= 1;
+            return { day: lunarDay, month: lunarMonth, year: yy };
         }
         return { getLunarDate };
     })();
@@ -412,15 +474,6 @@
     let statYear = currentDate.getFullYear();
 
     let appointments = JSON.parse(localStorage.getItem('makeup_appointments_v3')) || [];
-    // Migration from v2 to v3 if needed
-    if(appointments.length === 0) {
-        let oldData = JSON.parse(localStorage.getItem('makeup_appointments_v2'));
-        if(oldData && oldData.length > 0) {
-            appointments = oldData.map(app => ({...app, source: 'Không rõ', guestCount: 1}));
-            localStorage.setItem('makeup_appointments_v3', JSON.stringify(appointments));
-        }
-    }
-
     let currentActionId = null;
 
     // --- INITIALIZATION ---
@@ -430,6 +483,78 @@
         renderAppointments();
         renderStats();
     });
+
+    // --- RECURRING LOGIC (Dynamic Check) ---
+    // Hàm lấy danh sách sự kiện cho 1 ngày cụ thể (Bao gồm cả Makeup và Lịch Nghỉ lặp lại)
+    function getEventsForDate(targetDateObj) {
+        const targetDateStr = formatDateStr(targetDateObj);
+        const targetTime = targetDateObj.getTime();
+        const targetLunar = LunarCal.getLunarDate(targetDateObj.getDate(), targetDateObj.getMonth() + 1, targetDateObj.getFullYear());
+
+        let results = [];
+
+        appointments.forEach(app => {
+            // Chuẩn hóa dữ liệu cũ nếu thiếu type
+            const appType = app.type || 'makeup';
+
+            // Sự kiện không lặp lại
+            if (appType === 'makeup' || !app.isRepeat) {
+                if (app.date === targetDateStr) results.push(app);
+                return;
+            }
+
+            // Nếu chính là ngày bắt đầu thì chắc chắn hiển thị
+            if (targetDateStr === app.date) {
+                results.push(app);
+                return;
+            }
+
+            // Sự kiện Lặp lại (Chỉ dành cho Lịch Nghỉ)
+            const [bYear, bMonth, bDay] = app.date.split('-');
+            const baseDateObj = new Date(parseInt(bYear), parseInt(bMonth) - 1, parseInt(bDay));
+            const baseTime = baseDateObj.getTime();
+
+            // Không lặp trước ngày bắt đầu
+            if (targetTime < baseTime) return;
+
+            let isMatch = false;
+
+            if (app.repeatCalType === 'solar') {
+                if (app.repeatInterval === 'week') {
+                    const diffDays = Math.round((targetTime - baseTime) / (1000 * 60 * 60 * 24));
+                    if (diffDays % 7 === 0) isMatch = true;
+                } else if (app.repeatInterval === 'month') {
+                    if (targetDateObj.getDate() === baseDateObj.getDate()) isMatch = true;
+                } else if (app.repeatInterval === '3months') {
+                    const monthDiff = (targetDateObj.getFullYear() - baseDateObj.getFullYear()) * 12 + (targetDateObj.getMonth() - baseDateObj.getMonth());
+                    if (targetDateObj.getDate() === baseDateObj.getDate() && monthDiff % 3 === 0) isMatch = true;
+                } else if (app.repeatInterval === 'year') {
+                    if (targetDateObj.getDate() === baseDateObj.getDate() && targetDateObj.getMonth() === baseDateObj.getMonth()) isMatch = true;
+                }
+            } else if (app.repeatCalType === 'lunar' && app.baseLunar) {
+                const bLunar = app.baseLunar;
+                if (app.repeatInterval === 'week') {
+                    // Lặp mỗi tuần theo âm lịch vẫn dùng khoảng cách 7 ngày thực tế
+                    const diffDays = Math.round((targetTime - baseTime) / (1000 * 60 * 60 * 24));
+                    if (diffDays % 7 === 0) isMatch = true;
+                } else if (app.repeatInterval === 'month') {
+                    if (targetLunar.day === bLunar.day) isMatch = true;
+                } else if (app.repeatInterval === '3months') {
+                    const monthDiff = (targetLunar.year - bLunar.year) * 12 + (targetLunar.month - bLunar.month);
+                    if (targetLunar.day === bLunar.day && monthDiff % 3 === 0) isMatch = true;
+                } else if (app.repeatInterval === 'year') {
+                    if (targetLunar.day === bLunar.day && targetLunar.month === bLunar.month) isMatch = true;
+                }
+            }
+
+            // Nếu khớp điều kiện lặp, copy object và sửa ngày thành ngày hiện tại để hiển thị
+            if (isMatch) {
+                results.push({ ...app, originalDate: app.date, date: targetDateStr, isInstance: true });
+            }
+        });
+
+        return results;
+    }
 
     // --- CALENDAR LOGIC ---
     function renderCalendar() {
@@ -449,7 +574,6 @@
 
         for (let i = 1; i <= daysInMonth; i++) {
             const cellDate = new Date(displayYear, displayMonth, i);
-            const dateStr = formatDateStr(cellDate);
             const isToday = isSameDate(cellDate, new Date());
             const isSelected = isSameDate(cellDate, selectedDate);
             
@@ -457,22 +581,29 @@
             let lunarText = `${lunar.day}/${lunar.month}`;
             const isHighlightLunar = (lunar.day === 1 || lunar.day === 15);
 
-            const dailyApps = appointments.filter(app => app.date === dateStr);
+            // Lấy sự kiện cho ngày này
+            const dailyApps = getEventsForDate(cellDate);
+            
+            // Tách loại sự kiện
+            const makeupApps = dailyApps.filter(a => (a.type || 'makeup') === 'makeup');
+            const dayOffApps = dailyApps.filter(a => a.type === 'dayoff');
+            const isDayOff = dayOffApps.length > 0;
+
             let badgeHtml = '';
-            if (dailyApps.length > 0) {
-                const isAllDone = dailyApps.every(app => app.status === 'completed');
-                const badgeColor = isAllDone ? 'bg-green-500 border-green-500' : 'bg-red-500 border-red-500';
-                badgeHtml = `<div class="event-badge ${badgeColor}">${dailyApps.length}</div>`;
+            if (makeupApps.length > 0) {
+                const isAllDone = makeupApps.every(app => app.status === 'completed');
+                const badgeColor = isAllDone ? 'bg-green-500 border-green-500' : 'bg-primary border-primary';
+                badgeHtml = `<div class="event-badge ${badgeColor}">${makeupApps.length}</div>`;
             }
 
             const cell = document.createElement('div');
-            cell.className = `calendar-cell ${isSelected ? 'active' : ''} ${isToday && !isSelected ? 'border border-primary text-primary' : ''}`;
+            // Thêm class 'day-off-mark' nếu là ngày nghỉ
+            cell.className = `calendar-cell ${isSelected ? 'active' : ''} ${isToday && !isSelected ? 'border border-primary text-primary' : ''} ${isDayOff ? 'day-off-mark' : ''}`;
             cell.onclick = () => selectDate(cellDate);
 
-            // Đổi màu lịch âm từ text-gray-400 sang text-gray-600 để rõ hơn
             cell.innerHTML = `
                 <span class="z-10 font-bold">${i}</span>
-                <span class="lunar-date ${isHighlightLunar ? 'highlight' : 'text-gray-600'} z-10">${lunarText}</span>
+                <span class="lunar-date ${isHighlightLunar ? 'highlight' : 'text-gray-400'} z-10">${lunarText}</span>
                 ${badgeHtml}
             `;
             calendarDays.appendChild(cell);
@@ -507,9 +638,13 @@
         const lunar = LunarCal.getLunarDate(selectedDate.getDate(), selectedDate.getMonth() + 1, selectedDate.getFullYear());
         lunarTitleEl.innerText = `Âm lịch: Ngày ${lunar.day} tháng ${lunar.month}`;
 
-        const targetDateStr = formatDateStr(selectedDate);
-        const dailyApps = appointments.filter(app => app.date === targetDateStr);
-        dailyApps.sort((a, b) => a.time.localeCompare(b.time));
+        const dailyApps = getEventsForDate(selectedDate);
+        
+        // Sort: Makeup có giờ trước, Nghỉ nằm cuối. Cùng loại thì sort theo giờ.
+        dailyApps.sort((a, b) => {
+            if (a.type !== b.type) return (a.type === 'dayoff') ? 1 : -1;
+            return (a.time || '').localeCompare(b.time || '');
+        });
 
         listEl.innerHTML = '';
         if (dailyApps.length === 0) {
@@ -523,93 +658,156 @@
         }
 
         dailyApps.forEach(app => {
-            const isCompleted = app.status === 'completed';
+            const appType = app.type || 'makeup';
             const card = document.createElement('div');
-            card.className = `bg-white p-4 rounded-2xl shadow-sm border-l-4 ${isCompleted ? 'border-green-400 opacity-80' : 'border-primary'} flex justify-between items-start active:scale-[0.98] transition-transform cursor-pointer`;
-            card.onclick = () => openDetailModal(app.id);
+            
+            if (appType === 'makeup') {
+                const isCompleted = app.status === 'completed';
+                card.className = `bg-white p-4 rounded-2xl shadow-sm border-l-4 ${isCompleted ? 'border-green-400 opacity-80' : 'border-primary'} flex justify-between items-start active:scale-[0.98] transition-transform cursor-pointer`;
+                card.onclick = () => openDetailModal(app.id);
 
-            let statusHtml = !isCompleted 
-                ? `<span class="w-3 h-3 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500/50 mt-1"></span>` 
-                : `<i class="fas fa-check-circle text-green-500 text-lg mt-1"></i>`;
+                let statusHtml = !isCompleted ? `<span class="w-3 h-3 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500/50 mt-1"></span>` : `<i class="fas fa-check-circle text-green-500 text-lg mt-1"></i>`;
+                let guestCountTxt = (app.guestCount && app.guestCount > 1) ? ` (${app.guestCount} khách)` : '';
+                let sourceTxt = app.source ? `Đặt qua: ${app.source}` : '';
 
-            let guestCountTxt = (app.guestCount && app.guestCount > 1) ? ` (${app.guestCount} khách)` : '';
-            let sourceTxt = app.source ? `Đặt qua: ${app.source}` : '';
+                card.innerHTML = `
+                    <div class="flex space-x-3 w-full pr-2 min-w-0">
+                        <div class="bg-gray-100 px-3 py-2 rounded-xl text-center shrink-0 border border-gray-200 self-start">
+                            <span class="block text-sm font-bold text-gray-800">${app.time}</span>
+                        </div>
+                        <div class="flex-1 min-w-0 flex flex-col justify-center">
+                            <h4 class="font-bold text-gray-800 text-base truncate leading-tight mb-1">
+                                ${app.customer}${guestCountTxt} <span class="text-xs font-normal text-blue-500 ml-1">- ${sourceTxt}</span>
+                            </h4>
+                            <p class="text-xs text-gray-600 truncate mb-0.5"><i class="fas fa-align-left text-gray-400 w-3 text-center mr-1"></i> Ghi chú: ${app.note || 'Không'}</p>
+                            <p class="text-xs text-gray-600 truncate"><i class="fas fa-map-marker-alt text-gray-400 w-3 text-center mr-1"></i> Địa chỉ: ${app.location || 'Tại tiệm'}</p>
+                        </div>
+                        <div class="shrink-0 flex items-start justify-center w-6">${statusHtml}</div>
+                    </div>`;
+            } else {
+                // UI cho Lịch Nghỉ
+                card.className = `bg-red-50 p-4 rounded-2xl shadow-sm border border-red-200 flex justify-between items-center active:scale-[0.98] transition-transform cursor-pointer`;
+                card.onclick = () => openDetailModal(app.id);
+                
+                let repeatIcon = app.isRepeat ? `<i class="fas fa-sync-alt text-red-400 text-xs ml-2" title="Lịch lặp lại"></i>` : '';
 
-            card.innerHTML = `
-                <div class="flex space-x-3 w-full pr-2 min-w-0">
-                    <div class="bg-gray-100 px-3 py-2 rounded-xl text-center shrink-0 border border-gray-200 self-start">
-                        <span class="block text-sm font-bold text-gray-800">${app.time}</span>
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3 flex-1 min-w-0">
+                        <div class="w-10 h-10 rounded-full bg-red-100 text-red-500 flex items-center justify-center text-lg shrink-0">🏖️</div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-red-700 text-base flex items-center">Lịch Nghỉ Ngơi ${repeatIcon}</h4>
+                            <p class="text-sm text-red-600 truncate">Lý do: ${app.reason || 'Không có'}</p>
+                        </div>
                     </div>
-                    <div class="flex-1 min-w-0 flex flex-col justify-center">
-                        <h4 class="font-bold text-gray-800 text-base truncate leading-tight mb-1">
-                            ${app.customer}${guestCountTxt} <span class="text-xs font-normal text-blue-500 ml-1">- ${sourceTxt}</span>
-                        </h4>
-                        <p class="text-xs text-gray-600 truncate mb-0.5"><i class="fas fa-align-left text-gray-400 w-3 text-center mr-1"></i> Ghi chú: ${app.note || 'Không'}</p>
-                        <p class="text-xs text-gray-600 truncate"><i class="fas fa-map-marker-alt text-gray-400 w-3 text-center mr-1"></i> Địa chỉ: ${app.location || 'Tại tiệm'}</p>
-                    </div>
-                    <div class="shrink-0 flex items-start justify-center w-6">
-                        ${statusHtml}
-                    </div>
-                </div>
-            `;
+                `;
+            }
             listEl.appendChild(card);
         });
     }
 
     // --- FORM LOGIC (ADD / EDIT) ---
+    function switchEventType(type) {
+        document.getElementById('inpType').value = type;
+        
+        const btnMakeup = document.getElementById('btnTypeMakeup');
+        const btnDayOff = document.getElementById('btnTypeDayOff');
+        const makeupSec = document.getElementById('makeupSection');
+        const dayOffSec = document.getElementById('dayOffSection');
+        const lblTime = document.getElementById('lblTime');
+        const btnSave = document.getElementById('btnSaveForm');
+
+        if (type === 'makeup') {
+            btnMakeup.classList.add('active'); btnDayOff.classList.remove('active');
+            makeupSec.classList.remove('hidden'); dayOffSec.classList.add('hidden');
+            lblTime.innerHTML = 'Giờ hẹn <span class="text-red-500">*</span>';
+            btnSave.className = "w-full bg-primary text-white font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform shadow-lg shadow-primary/30";
+            btnSave.innerHTML = '<i class="fas fa-save mr-2"></i> Lưu Lịch Hẹn';
+        } else {
+            btnDayOff.classList.add('active'); btnMakeup.classList.remove('active');
+            dayOffSec.classList.remove('hidden'); makeupSec.classList.add('hidden');
+            lblTime.innerHTML = 'Giờ bắt đầu nghỉ';
+            btnSave.className = "w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform shadow-lg shadow-orange-500/30";
+            btnSave.innerHTML = '<i class="fas fa-bed mr-2"></i> Lưu Lịch Nghỉ';
+        }
+    }
+
+    function handleRepeatToggle() {
+        const isChecked = document.getElementById('toggleRepeat').checked;
+        const opts = document.getElementById('repeatOptions');
+        if (isChecked) opts.classList.remove('hidden');
+        else opts.classList.add('hidden');
+    }
+
     function toggleSourceOther() {
         const radios = document.getElementsByName('sourceType');
         let selectedValue = '';
         for(let r of radios) { if(r.checked) selectedValue = r.value; }
-        
         const otherInput = document.getElementById('inpSourceOther');
-        if(selectedValue === 'Khác') {
-            otherInput.classList.remove('hidden');
-            otherInput.focus();
-        } else {
-            otherInput.classList.add('hidden');
-        }
+        if(selectedValue === 'Khác') { otherInput.classList.remove('hidden'); otherInput.focus(); } 
+        else { otherInput.classList.add('hidden'); }
     }
 
     function openFormModal(id = null) {
         const isEdit = id !== null;
-        document.getElementById('formModalTitle').innerText = isEdit ? 'Sửa lịch hẹn' : 'Thêm lịch Makeup';
         
         if (isEdit) {
             const app = appointments.find(a => a.id === id);
-            document.getElementById('inpId').value = app.id;
-            document.getElementById('inpCustomer').value = app.customer;
-            document.getElementById('inpGuestCount').value = app.guestCount || 1;
-            document.getElementById('inpDate').value = app.date;
-            document.getElementById('inpTime').value = app.time;
-            document.getElementById('inpPackage').value = app.package || '';
-            document.getElementById('inpLocation').value = app.location || '';
-            document.getElementById('inpNote').value = app.note || '';
+            const type = app.type || 'makeup';
+            switchEventType(type);
 
-            // Handle Source radio
-            const radios = document.getElementsByName('sourceType');
-            let isOther = true;
-            for(let r of radios) {
-                if(r.value === app.source) { r.checked = true; isOther = false; break; }
-            }
-            if(isOther && app.source) {
-                document.querySelector('input[name="sourceType"][value="Khác"]').checked = true;
-                document.getElementById('inpSourceOther').value = app.source;
+            document.getElementById('inpId').value = app.id;
+            document.getElementById('inpDate').value = app.date;
+            document.getElementById('inpTime').value = app.time || '';
+            
+            if (type === 'makeup') {
+                document.getElementById('inpCustomer').value = app.customer;
+                document.getElementById('inpGuestCount').value = app.guestCount || 1;
+                document.getElementById('inpPackage').value = app.package || '';
+                document.getElementById('inpLocation').value = app.location || '';
+                document.getElementById('inpNote').value = app.note || '';
+
+                const radios = document.getElementsByName('sourceType');
+                let isOther = true;
+                for(let r of radios) { if(r.value === app.source) { r.checked = true; isOther = false; break; } }
+                if(isOther && app.source) {
+                    document.querySelector('input[name="sourceType"][value="Khác"]').checked = true;
+                    document.getElementById('inpSourceOther').value = app.source;
+                } else { document.getElementById('inpSourceOther').value = ''; }
             } else {
-                document.getElementById('inpSourceOther').value = '';
+                document.getElementById('inpReason').value = app.reason || '';
+                document.getElementById('toggleRepeat').checked = app.isRepeat || false;
+                handleRepeatToggle();
+
+                if (app.isRepeat) {
+                    const cals = document.getElementsByName('repeatCalType');
+                    for(let c of cals) { if(c.value === app.repeatCalType) c.checked = true; }
+                    const ints = document.getElementsByName('repeatInterval');
+                    for(let i of ints) { if(i.value === app.repeatInterval) i.checked = true; }
+                }
             }
         } else {
+            // New Mode
             document.getElementById('inpId').value = '';
+            document.getElementById('inpDate').value = formatDateStr(selectedDate);
+            document.getElementById('inpTime').value = '';
+            
+            // Reset Makeup
             document.getElementById('inpCustomer').value = '';
             document.getElementById('inpGuestCount').value = '1';
-            document.getElementById('inpTime').value = '';
             document.getElementById('inpPackage').value = '';
             document.getElementById('inpLocation').value = '';
             document.getElementById('inpNote').value = '';
-            document.getElementById('inpDate').value = formatDateStr(selectedDate);
-            
             document.querySelector('input[name="sourceType"][value="Facebook"]').checked = true;
             document.getElementById('inpSourceOther').value = '';
+            
+            // Reset Dayoff
+            document.getElementById('inpReason').value = '';
+            document.getElementById('toggleRepeat').checked = false;
+            document.querySelector('input[name="repeatCalType"][value="solar"]').checked = true;
+            document.querySelector('input[name="repeatInterval"][value="week"]').checked = true;
+            handleRepeatToggle();
+
+            switchEventType('makeup'); // Mặc định mở lên là Makeup
         }
         
         toggleSourceOther();
@@ -628,38 +826,57 @@
 
     function saveAppointment() {
         const id = document.getElementById('inpId').value;
-        const customer = document.getElementById('inpCustomer').value.trim();
-        const guestCount = parseInt(document.getElementById('inpGuestCount').value) || 1;
+        const type = document.getElementById('inpType').value;
         const date = document.getElementById('inpDate').value;
         const time = document.getElementById('inpTime').value;
-        const pkg = document.getElementById('inpPackage').value.trim();
-        const location = document.getElementById('inpLocation').value.trim();
-        const note = document.getElementById('inpNote').value.trim();
 
-        // Get Source
-        let source = '';
-        const radios = document.getElementsByName('sourceType');
-        for(let r of radios) { if(r.checked) source = r.value; }
-        if(source === 'Khác') {
-            source = document.getElementById('inpSourceOther').value.trim() || 'Khác';
-        }
+        if (!date) { alert('Vui lòng chọn ngày!'); return; }
 
-        if (!customer || !date || !time) {
-            alert('Vui lòng nhập đủ tên khách, ngày và giờ!');
-            return;
+        let newApp = { id: id || ('app_' + Date.now()), type, date, time };
+
+        if (type === 'makeup') {
+            const customer = document.getElementById('inpCustomer').value.trim();
+            if (!customer || !time) { alert('Vui lòng nhập đủ tên khách và giờ hẹn!'); return; }
+            
+            let source = '';
+            const radios = document.getElementsByName('sourceType');
+            for(let r of radios) { if(r.checked) source = r.value; }
+            if(source === 'Khác') source = document.getElementById('inpSourceOther').value.trim() || 'Khác';
+
+            newApp = {
+                ...newApp, customer, source, 
+                guestCount: parseInt(document.getElementById('inpGuestCount').value) || 1,
+                package: document.getElementById('inpPackage').value.trim(),
+                location: document.getElementById('inpLocation').value.trim(),
+                note: document.getElementById('inpNote').value.trim(),
+                status: 'pending', amount: 0
+            };
+        } else {
+            // Day Off
+            const reason = document.getElementById('inpReason').value.trim();
+            if (!reason) { alert('Vui lòng nhập lý do nghỉ!'); return; }
+
+            const isRepeat = document.getElementById('toggleRepeat').checked;
+            let repeatCalType = 'solar', repeatInterval = 'week', baseLunar = null;
+
+            if (isRepeat) {
+                const cals = document.getElementsByName('repeatCalType');
+                for(let c of cals) { if(c.checked) repeatCalType = c.value; }
+                const ints = document.getElementsByName('repeatInterval');
+                for(let i of ints) { if(i.checked) repeatInterval = i.value; }
+
+                const [y, m, d] = date.split('-');
+                baseLunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
+            }
+
+            newApp = { ...newApp, reason, isRepeat, repeatCalType, repeatInterval, baseLunar };
         }
 
         if (id) {
             const index = appointments.findIndex(a => a.id === id);
-            if (index > -1) {
-                appointments[index] = { ...appointments[index], customer, guestCount, source, date, time, package: pkg, location, note };
-            }
+            if (index > -1) appointments[index] = { ...appointments[index], ...newApp };
         } else {
-            appointments.push({
-                id: 'app_' + Date.now(),
-                customer, guestCount, source, date, time, package: pkg, location, note,
-                status: 'pending', amount: 0
-            });
+            appointments.push(newApp);
         }
 
         saveData();
@@ -667,103 +884,145 @@
         selectDate(new Date(date)); 
     }
 
-    // --- DETAIL MODAL LOGIC (TICKET VIEW) ---
+    // --- DETAIL MODAL LOGIC ---
     function openDetailModal(id) {
         currentActionId = id;
         const app = appointments.find(a => a.id === id);
         if(!app) return;
 
-        // Điền dữ liệu vào form Phiếu chốt lịch
-        document.getElementById('capCustomer').innerText = app.customer;
-        const [y, m, d] = app.date.split('-');
-        document.getElementById('capDate').innerText = `${d}/${m}/${y}`;
+        const type = app.type || 'makeup';
+        const contentDiv = document.getElementById('detailDynamicContent');
+        const btnComplete = document.getElementById('btnComplete');
         
-        const lunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
-        document.getElementById('capLunarDate').innerText = `${lunar.day}/${lunar.month}`;
+        const [y, m, d] = (app.isInstance ? app.originalDate : app.date).split('-');
+        const lunarObj = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
+        const dateDisplay = `${d}/${m}/${y}`;
+        const lunarDisplay = `${lunarObj.day}/${lunarObj.month}`;
 
-        document.getElementById('capTime').innerText = app.time;
-        document.getElementById('capPackage').innerText = app.package || 'Tự do';
-        document.getElementById('capGuest').innerText = app.guestCount || 1;
-        document.getElementById('capLocation').innerText = app.location || 'Tại tiệm';
-        
-        let noteText = app.note || 'Không';
-        if(app.source) noteText += ` 
-        (Nguồn khách: ${app.source})`;
-        document.getElementById('capNote').innerText = noteText;
+        if (type === 'makeup') {
+            // Render Phiếu Chốt Lịch
+            let badgeHtml = '';
+            if (app.status === 'completed') {
+                badgeHtml = `<div class="absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">Đã Hoàn Thành</div>`;
+                btnComplete.style.display = 'none';
+            } else {
+                badgeHtml = `<div class="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">Chờ Phục Vụ</div>`;
+                btnComplete.style.display = 'flex';
+            }
 
-        const badge = document.getElementById('detStatusBadge');
-        if (app.status === 'completed') {
-            badge.innerText = "Đã Hoàn Thành";
-            badge.className = "absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg";
-            document.getElementById('btnComplete').style.display = 'none';
+            let noteText = app.note || 'Không';
+            let sourceHtml = app.source ? `<div class="text-right mt-1"><span class="inline-block bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-xs font-bold italic">${app.source}</span></div>` : '';
+
+            contentDiv.innerHTML = `
+                <div class="border-2 border-dashed border-primary rounded-xl p-5 bg-rose-50/30 relative">
+                    ${badgeHtml}
+                    <div class="text-center mb-4">
+                        <div class="inline-flex justify-center items-center w-12 h-12 bg-primary rounded-full text-white text-xl mb-2 shadow-md"><i class="fas fa-magic"></i></div>
+                        <h2 class="m-0 text-primary text-2xl font-bold uppercase tracking-wide">Minh Thư Makeup</h2>
+                        <p class="m-0 mt-1 text-gray-500 text-sm font-medium">PHIẾU CHỐT LỊCH</p>
+                    </div>
+                    <div class="border-t border-rose-200 pt-4 mb-4">
+                        <p class="mb-2 text-[15px] text-gray-700"><strong>Khách hàng:</strong> <span class="text-gray-900 font-medium">${app.customer}</span></p>
+                        <p class="mb-2 text-[15px] text-gray-700"><strong>Ngày hẹn:</strong> <span class="text-gray-900 font-medium">${dateDisplay}</span> <span class="text-[13px] text-primary ml-1">(Âm: ${lunarDisplay})</span></p>
+                        <p class="mb-2 text-[15px] text-gray-700"><strong>Giờ hẹn:</strong> <span class="text-primary font-bold text-lg">${app.time}</span></p>
+                    </div>
+                    <div class="bg-rose-100/50 p-3 rounded-lg mb-4">
+                        <p class="mb-1 text-sm text-rose-900"><strong><i class="fas fa-box-open w-4"></i> Gói Makeup:</strong> <span>${app.package || 'Tự do'}</span></p>
+                        <p class="mb-1 text-sm text-rose-900"><strong><i class="fas fa-users w-4"></i> Số lượng:</strong> <span>${app.guestCount || 1}</span> khách</p>
+                        <p class="m-0 text-sm text-rose-900 break-words"><strong><i class="fas fa-map-marker-alt w-4"></i> Địa chỉ:</strong> <span>${app.location || 'Tại tiệm'}</span></p>
+                    </div>
+                    <div class="mb-4">
+                        <p class="m-0 text-sm text-gray-600 italic break-words"><strong class="not-italic">Ghi chú:</strong> <span>${noteText}</span></p>
+                        ${sourceHtml}
+                    </div>
+                    <div class="text-center border-t border-dashed border-rose-300 pt-4">
+                        <p class="m-0 text-primary font-bold text-sm">Cảm ơn bạn đã tin tưởng và lựa chọn!</p>
+                    </div>
+                </div>
+            `;
+            
+            btnComplete.onclick = () => { closeModal('detailModal'); openMoneyModal(id, app.customer); };
+
         } else {
-            badge.innerText = "Chờ Phục Vụ";
-            badge.className = "absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg";
-            document.getElementById('btnComplete').style.display = 'flex';
+            // Render Phiếu Lịch Nghỉ
+            btnComplete.style.display = 'none'; // Không có nút thanh toán cho Lịch nghỉ
+            
+            let repeatText = 'Không lặp lại';
+            if (app.isRepeat) {
+                const calTypeStr = app.repeatCalType === 'solar' ? 'Dương lịch' : 'Âm lịch';
+                const intStrMap = { 'week': 'Mỗi Tuần', 'month': 'Mỗi Tháng', '3months': 'Mỗi 3 Tháng', 'year': 'Mỗi Năm' };
+                repeatText = `Lặp lại: ${intStrMap[app.repeatInterval]} (${calTypeStr})`;
+            }
+
+            contentDiv.innerHTML = `
+                <div class="border-2 border-orange-300 rounded-xl p-5 bg-orange-50 relative">
+                    <div class="absolute top-0 right-0 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">Nghỉ Ngơi</div>
+                    <div class="text-center mb-4 mt-2">
+                        <div class="inline-flex justify-center items-center w-14 h-14 bg-orange-100 text-orange-500 rounded-full text-3xl mb-3 shadow-inner">🏖️</div>
+                        <h2 class="m-0 text-orange-600 text-xl font-bold uppercase">Lịch Nghỉ Phép</h2>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-orange-100">
+                        <p class="mb-3 text-[15px] text-gray-700 border-b border-gray-100 pb-2">
+                            <strong><i class="far fa-calendar-alt text-orange-400 w-5"></i> Bắt đầu:</strong> 
+                            <span class="text-gray-900 font-medium">${dateDisplay}</span> 
+                            <span class="text-[13px] text-orange-500 ml-1">(Âm: ${lunarDisplay})</span>
+                        </p>
+                        ${app.time ? `<p class="mb-3 text-[15px] text-gray-700 border-b border-gray-100 pb-2"><strong><i class="far fa-clock text-orange-400 w-5"></i> Từ giờ:</strong> <span class="font-medium">${app.time}</span></p>` : ''}
+                        
+                        <div class="mb-3">
+                            <p class="text-sm font-bold text-gray-700 mb-1"><i class="fas fa-info-circle text-orange-400 w-5"></i> Lý do:</p>
+                            <p class="text-gray-800 bg-orange-50/50 p-2 rounded border border-orange-100 text-sm">${app.reason}</p>
+                        </div>
+                        
+                        <p class="m-0 text-sm font-medium ${app.isRepeat ? 'text-blue-600' : 'text-gray-500'}">
+                            <i class="fas fa-sync-alt w-5"></i> ${repeatText}
+                        </p>
+                        ${app.isInstance ? `<p class="text-xs text-gray-400 mt-1 italic">* Đây là 1 ngày thuộc chu kỳ lặp. Xóa sẽ xóa toàn bộ chu kỳ.</p>` : ''}
+                    </div>
+                </div>
+            `;
         }
 
-        // Gán sự kiện cho các nút
         document.getElementById('btnEdit').onclick = () => openFormModal(id);
         document.getElementById('btnDelete').onclick = () => {
-            if(confirm('Bạn có chắc muốn xóa lịch này vĩnh viễn?')) {
+            const msg = type === 'dayoff' && app.isRepeat ? 'Xóa lịch này sẽ xóa TOÀN BỘ chu kỳ lặp lại của nó. Bạn có chắc chắn?' : 'Bạn có chắc muốn xóa lịch này vĩnh viễn?';
+            if(confirm(msg)) {
                 appointments = appointments.filter(a => a.id !== id);
-                saveData();
-                closeModal('detailModal');
+                saveData(); closeModal('detailModal');
                 renderCalendar(); renderAppointments(); renderStats();
             }
-        };
-        document.getElementById('btnComplete').onclick = () => {
-            closeModal('detailModal');
-            openMoneyModal(id, app.customer);
         };
 
         openModal('detailModal');
     }
 
-    // --- MONEY COMPLETION LOGIC ---
+    // --- MONEY & STATS --- (Giữ nguyên logic cũ)
     function openMoneyModal(id, customerName) {
-        currentActionId = id;
-        document.getElementById('moneyCustomerName').innerText = customerName;
-        document.getElementById('inpMoney').value = '';
-        openModal('moneyModal');
+        currentActionId = id; document.getElementById('moneyCustomerName').innerText = customerName;
+        document.getElementById('inpMoney').value = ''; openModal('moneyModal');
     }
-
     function setMoney(val) { document.getElementById('inpMoney').value = val; }
-
     function confirmCompletion() {
-        const amountStr = document.getElementById('inpMoney').value;
-        const amount = parseInt(amountStr) || 0;
-
+        const amount = parseInt(document.getElementById('inpMoney').value) || 0;
         const index = appointments.findIndex(a => a.id === currentActionId);
-        if (index > -1) {
-            appointments[index].status = 'completed';
-            appointments[index].amount = amount;
-            saveData();
-        }
-
-        closeModal('moneyModal');
-        renderCalendar();
-        renderAppointments();
-        renderStats();
+        if (index > -1) { appointments[index].status = 'completed'; appointments[index].amount = amount; saveData(); }
+        closeModal('moneyModal'); renderCalendar(); renderAppointments(); renderStats();
     }
 
-    // --- STATS LOGIC ---
     function renderStats() {
-        const statText = document.getElementById('statMonthYearText');
-        statText.innerText = `Tháng ${statMonth + 1}, ${statYear}`;
-
+        document.getElementById('statMonthYearText').innerText = `Tháng ${statMonth + 1}, ${statYear}`;
         const monthStr = `${statYear}-${String(statMonth + 1).padStart(2, '0')}`;
-        const completedJobs = appointments.filter(app => app.status === 'completed' && app.date.startsWith(monthStr));
+        // Lọc app loại makeup và completed
+        const completedJobs = appointments.filter(app => (app.type || 'makeup') === 'makeup' && app.status === 'completed' && app.date.startsWith(monthStr));
         completedJobs.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
 
         const total = completedJobs.reduce((sum, app) => sum + app.amount, 0);
-
         document.getElementById('totalRevenue').innerText = formatMoney(total);
         document.getElementById('totalJobsText').innerText = `Đã hoàn thành ${completedJobs.length} lịch`;
 
         const listEl = document.getElementById('completedList');
         listEl.innerHTML = '';
-
         if (completedJobs.length === 0) {
             listEl.innerHTML = `<p class="text-center text-sm text-gray-400 mt-8"><i class="fas fa-box-open text-3xl mb-2 opacity-50"></i><br>Chưa có thu nhập tháng này</p>`;
             return;
@@ -775,17 +1034,13 @@
             div.className = 'bg-white p-4 rounded-xl shadow-sm flex justify-between items-center';
             div.innerHTML = `
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full bg-secondary text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                        ${d}/${m}
-                    </div>
+                    <div class="w-10 h-10 rounded-full bg-secondary text-primary flex items-center justify-center font-bold text-sm shrink-0">${d}/${m}</div>
                     <div class="truncate">
                         <h4 class="font-bold text-gray-800 text-sm truncate">${app.customer}</h4>
                         <p class="text-xs text-gray-500">${app.package || 'Makeup'} • ${app.time}</p>
                     </div>
                 </div>
-                <div class="font-bold text-green-600 shrink-0 pl-2">
-                    +${formatMoneyShort(app.amount)}
-                </div>
+                <div class="font-bold text-green-600 shrink-0 pl-2">+${formatMoneyShort(app.amount)}</div>
             `;
             listEl.appendChild(div);
         });
@@ -798,99 +1053,65 @@
         renderStats();
     }
 
-    // --- IMPORT / EXPORT DATA (SYNC) ---
+    // --- SYNC ---
     function exportData() {
         const data = localStorage.getItem('makeup_appointments_v3') || '[]';
         const blob = new Blob([data], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const dateStr = formatDateStr(new Date()).replace(/-/g, '');
-        a.download = `LichMakeup_Backup_${dateStr}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        closeModal('syncModal');
-        alert("Đã lưu file dữ liệu về máy thành công!");
+        const a = document.createElement('a'); a.href = url;
+        a.download = `LichMakeup_Backup_${formatDateStr(new Date()).replace(/-/g, '')}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        closeModal('syncModal'); alert("Đã lưu file dữ liệu về máy thành công!");
     }
-
     function importData(event) {
-        const file = event.target.files[0];
-        if(!file) return;
-        
+        const file = event.target.files[0]; if(!file) return;
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const importedData = JSON.parse(e.target.result);
                 if(Array.isArray(importedData)) {
                     if(confirm("Dữ liệu cũ trên máy này sẽ bị GHI ĐÈ bằng dữ liệu mới. Bạn có chắc chắn muốn tiếp tục?")) {
-                        appointments = importedData;
-                        saveData();
-                        renderCalendar();
-                        renderAppointments();
-                        renderStats();
-                        closeModal('syncModal');
-                        alert("Đồng bộ dữ liệu thành công!");
+                        appointments = importedData; saveData();
+                        renderCalendar(); renderAppointments(); renderStats();
+                        closeModal('syncModal'); alert("Đồng bộ dữ liệu thành công!");
                     }
-                } else {
-                    alert("File không đúng định dạng của ứng dụng!");
-                }
-            } catch(err) {
-                alert("Lỗi! Không thể đọc file này.");
-            }
-            event.target.value = ''; // Reset input file
+                } else alert("File không đúng định dạng của ứng dụng!");
+            } catch(err) { alert("Lỗi! Không thể đọc file này."); }
+            event.target.value = '';
         };
         reader.readAsText(file);
     }
 
-    // --- UTILS ---
+    // --- UTILS & UI CONTROLS ---
     function saveData() { localStorage.setItem('makeup_appointments_v3', JSON.stringify(appointments)); }
     function formatDateStr(date) {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }
-    function isSameDate(d1, d2) {
-        return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
-    }
-    function formatMoney(amount) {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-    }
+    function isSameDate(d1, d2) { return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate(); }
+    function formatMoney(amount) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount); }
     function formatMoneyShort(amount) {
         if(amount >= 1000000) return (amount/1000000).toFixed(1).replace('.0','') + 'M';
-        if(amount >= 1000) return (amount/1000) + 'k';
-        return amount;
+        if(amount >= 1000) return (amount/1000) + 'k'; return amount;
     }
 
-    // --- UI CONTROLS ---
     function switchTab(tabName) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.fixed.bottom-0 button').forEach(el => {
-            el.classList.remove('text-primary'); el.classList.add('text-gray-400');
-        });
-
+        document.querySelectorAll('.fixed.bottom-0 button').forEach(el => { el.classList.remove('text-primary'); el.classList.add('text-gray-400'); });
         document.getElementById(`tab-${tabName}`).classList.add('active');
         const btn = document.getElementById(`btn-tab-${tabName}`);
         btn.classList.remove('text-gray-400'); btn.classList.add('text-primary');
-        
-        if(tabName === 'stats') renderStats();
-        if(tabName === 'calendar') renderCalendar();
+        if(tabName === 'stats') renderStats(); if(tabName === 'calendar') renderCalendar();
     }
-
     function openModal(id) {
-        const modal = document.getElementById(id);
-        const content = document.getElementById(id + 'Content');
+        const modal = document.getElementById(id); const content = document.getElementById(id + 'Content');
         modal.classList.remove('hidden');
         setTimeout(() => {
             if(id === 'formModal') content.style.transform = 'translateY(0)';
             else { content.style.transform = 'scale(1)'; content.style.opacity = '1'; }
         }, 10);
     }
-
     function closeModal(id) {
-        const modal = document.getElementById(id);
-        const content = document.getElementById(id + 'Content');
+        const modal = document.getElementById(id); const content = document.getElementById(id + 'Content');
         if(id === 'formModal') content.style.transform = 'translateY(100%)';
         else { content.style.transform = 'scale(0.9)'; content.style.opacity = '0'; }
         setTimeout(() => modal.classList.add('hidden'), 300);
