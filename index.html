@@ -62,9 +62,9 @@
         .calendar-cell.day-off-mark.active::before { color: #ffe4e6; }
 
         .lunar-date { font-size: 0.6rem; margin-top: -2px; letter-spacing: -0.5px; }
-        .active .lunar-date { color: #ffe4e6; }
+        .active .lunar-date { color: #FDB8C0; }
         .lunar-date.highlight { color: #ef4444; font-weight: bold; }
-        .active .lunar-date.highlight { color: #fff; }
+        .active .lunar-date.highlight { color: #FDB8C0; }
         
         .event-badge {
             position: absolute; top: -4px; right: -4px; width: 18px; height: 18px;
@@ -699,7 +699,7 @@
         
         const lunar = LunarCal.getLunarDate(selectedDate.getDate(), selectedDate.getMonth() + 1, selectedDate.getFullYear());
         // Hiển thị đầy đủ Ngày, Tháng, Năm và Can Chi
-        lunarTitleEl.innerText = `Âm lịch: Ngày ${lunar.day} tháng ${lunar.month} năm ${lunar.year} (${getLunarYearName(lunar.year)})`;
+        lunarTitleEl.innerText = `Âm lịch: Ngày ${lunar.day} tháng ${lunar.month} - ${getLunarYearName(lunar.year)}`;
 
         const dailyApps = getEventsForDate(selectedDate);
         
@@ -879,7 +879,7 @@
         if(!dateVal) return;
         const [y, m, d] = dateVal.split('-');
         const lunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
-        document.getElementById('formLunarDateText').innerHTML = `<i class="fas fa-moon mr-1"></i> Âm lịch: Ngày ${lunar.day} tháng ${lunar.month} năm ${lunar.year} (${getLunarYearName(lunar.year)})`;
+        document.getElementById('formLunarDateText').innerHTML = `<i class="fas fa-moon mr-1"></i> Âm lịch: Ngày ${lunar.day} tháng ${lunar.month} - ${getLunarYearName(lunar.year)}`;
     }
 
     function saveAppointment() {
@@ -956,7 +956,7 @@
         const dateDisplay = `${d}/${m}/${y}`;
         
         // Thêm Năm Âm lịch và Can Chi vào hiển thị
-        const lunarDisplay = `${lunarObj.day}/${lunarObj.month}/${lunarObj.year} (${getLunarYearName(lunarObj.year)})`;
+        const lunarDisplay = `${lunarObj.day}/${lunarObj.month} - ${getLunarYearName(lunarObj.year)}`;
 
         if (type === 'makeup') {
             let badgeHtml = '';
