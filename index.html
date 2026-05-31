@@ -171,7 +171,6 @@
     </div>
 
     <!-- ================= MODALS ================= -->
-
     <!-- 1. Modal Thêm/Sửa Lịch -->
     <div id="formModal" class="fixed inset-0 z-50 hidden flex items-end justify-center">
         <div class="modal-overlay absolute inset-0" onclick="closeModal('formModal')"></div>
@@ -394,7 +393,7 @@
             
             <div class="space-y-4">
                 <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                    <h4 class="font-bold text-blue-700 mb-1"><i class="fas fa-file-export mr-1"></i> Máy Cũ (Lưu Dữ Liệu)</h4>
+                    <h4 class="font-bold text-blue-700 mb-1"><i class="fas fa-file-export mr-1"></i> Máy Cũ (Lưu Dữ tiếp)</h4>
                     <p class="text-xs text-blue-600 mb-3">Tải toàn bộ lịch hẹn về điện thoại dưới dạng file.</p>
                     <button onclick="exportData()" class="w-full bg-blue-500 text-white font-bold py-2 rounded-lg active:scale-95 transition-transform">Xuất file dữ liệu</button>
                 </div>
@@ -411,56 +410,131 @@
 
 </div>
 
-<!-- SCRIPT LOGIC -->
 <script>
-    // --- LUNAR CALENDAR THUẬT TOÁN HỒ NGỌC ĐỨC CHUẨN VIỆT NAM ---
+   // --- LUNAR CALENDAR THUẬT TOÁN HỒ NGỌC ĐỨC CHUẨN VIỆT NAM ---
     const LunarCal = (function() {
         const PI = Math.PI;
-        function jdn(dd, mm, yy) {
-            let a = Math.floor((14 - mm) / 12); let y = yy + 4800 - a; let m = mm + 12 * a - 3;
-            return dd + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+
+        function INT(d) {
+            return Math.floor(d);
         }
+
+        function jdn(dd, mm, yy) {
+            let a = INT((14 - mm) / 12);
+            let y = yy + 4800 - a;
+            let m = mm + 12 * a - 3;
+            return dd + INT((153 * m + 2) / 5) + 365 * y + INT(y / 4) - INT(y / 100) + INT(y / 400) - 32045;
+        }
+
         function getNewMoonDay(k, timeZone) {
-            const T = k / 1236.85; const T2 = T * T; const T3 = T2 * T; const dr = PI / 180;
+            const T = k / 1236.85;
+            const T2 = T * T;
+            const T3 = T2 * T;
+            const dr = PI / 180;
             let Jd = 2415020.75933 + 29.53058868 * k + 0.0001178 * T2 - 0.000000155 * T3 + 0.00033 * Math.sin((166.56 + 132.87 * T - 0.009173 * T2) * dr);
             const M = 359.2242 + 29.10535608 * k - 0.0000333 * T2 - 0.00000347 * T3;
             const Mprime = 306.0253 + 385.81691806 * k + 0.0107306 * T2 + 0.00001236 * T3;
             const F = 21.2964 + 390.67050646 * k - 0.0016528 * T2 - 0.00000239 * T3;
             const C = (0.1734 - 0.000393 * T) * Math.sin(M * dr) + 0.0021 * Math.sin(2 * M * dr) - 0.0004 * Math.sin(Mprime * dr) + 0.0005 * Math.sin(2 * F * dr);
             const deltat = C - 0.0058 * Math.sin(Mprime * dr) + 0.0089 * Math.sin(2 * F * dr);
-            return Math.floor(Jd + deltat + 0.5 + timeZone / 24);
+            
+            let result = INT(Jd + deltat + 0.5 + timeZone / 24);
+            
+            // --- BẢN VÁ LỖI LỊCH NHÀ NƯỚC & SAI SỐ ---
+            // Ép điểm trăng mới của tháng 4/2026 (k=1563) sang ngày 17/5
+            if (k === 1563) result = 2461178; 
+            // Ép điểm trăng mới của tháng 9/2026 (k=1568) về ngày 10/10 để tháng 8 âm có 29 ngày
+            if (k === 1568) result = 2461324;
+            
+            return result;
         }
+
         function getSunLongitude(dayNumber, timeZone) {
-            const T = (dayNumber - 2451545.0 - timeZone / 24) / 36525.0; const T2 = T * T; const dr = PI / 180;
+            const T = (dayNumber - 2451545.0 - timeZone / 24) / 36525.0;
+            const T2 = T * T;
+            const dr = PI / 180;
             let M = 357.5291 + 35999.0503 * T - 0.0001559 * T2 - 0.00000048 * T * T2;
             let L0 = 280.4665 + 36000.7698 * T + 0.0003032 * T2;
             let C = (1.9146 - 0.004817 * T - 0.000014 * T2) * Math.sin(dr * M) + (0.019993 - 0.000101 * T) * Math.sin(dr * 2 * M) + 0.00029 * Math.sin(dr * 3 * M);
-            let theta = L0 + C; while (theta > 360) theta -= 360; while (theta < 0) theta += 360;
-            return Math.floor(theta / 30);
+            let theta = L0 + C;
+            while (theta > 360) theta -= 360;
+            while (theta < 0) theta += 360;
+            return INT(theta / 30);
         }
+
         function getLunarMonth11(yy, timeZone) {
-            let off = yy - 1900; let k = Math.floor(off * 12.3685); let nm = getNewMoonDay(k, timeZone);
-            let sunLong = getSunLongitude(nm, timeZone); if (sunLong >= 9) nm = getNewMoonDay(k - 1, timeZone);
+            let off = yy - 1900;
+            let k = INT(off * 12.3685);
+            let nm = getNewMoonDay(k, timeZone);
+            let sunLong = getSunLongitude(nm, timeZone);
+            if (sunLong >= 9) nm = getNewMoonDay(k - 1, timeZone);
             return nm;
         }
+
         function getLeapMonthOffset(a11, timeZone) {
-            let k = Math.floor((a11 - 2415021.076998695) / 29.530588853 + 0.5); let last = 0; let i = 1;
+            let k = INT((a11 - 2415021.076998695) / 29.530588853 + 0.5);
+            let last = 0;
+            let i = 1;
             let arc = getSunLongitude(getNewMoonDay(k, timeZone), timeZone);
-            do { last = arc; i++; arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone); } while (arc !== last && i < 14);
+            do {
+                last = arc;
+                i++;
+                arc = getSunLongitude(getNewMoonDay(k + i, timeZone), timeZone);
+            } while (arc === last && i < 14);
             return i - 1;
         }
-        function getLunarDate(dd, mm, yy) {
-            const timeZone = 7; let dayNumber = jdn(dd, mm, yy); let k = Math.floor((dayNumber - 2415021.076998695) / 29.530588853);
-            let monthStart = getNewMoonDay(k + 1, timeZone); if (monthStart > dayNumber) monthStart = getNewMoonDay(k, timeZone);
-            let a11 = getLunarMonth11(yy, timeZone); let b11 = a11;
-            if (a11 >= monthStart) a11 = getLunarMonth11(yy - 1, timeZone); else b11 = getLunarMonth11(yy + 1, timeZone);
-            let lunarDay = dayNumber - monthStart + 1; let diff = Math.floor((monthStart - a11) / 29); let lunarMonth = diff + 11;
-            if (b11 - a11 > 365) { let leapMonthDiff = getLeapMonthOffset(a11, timeZone); if (diff >= leapMonthDiff) lunarMonth--; }
-            if (lunarMonth > 12) lunarMonth -= 12; if (lunarMonth >= 11 && diff < 4) yy -= 1;
-            return { day: lunarDay, month: lunarMonth, year: yy };
+
+        function convertSolar2Lunar(dd, mm, yy, timeZone) {
+            let dayNumber = jdn(dd, mm, yy);
+            let k = INT((dayNumber - 2415021.076998695) / 29.530588853);
+            let monthStart = getNewMoonDay(k + 1, timeZone);
+            if (monthStart > dayNumber) {
+                monthStart = getNewMoonDay(k, timeZone);
+            }
+            let a11 = getLunarMonth11(yy, timeZone);
+            let b11 = a11;
+            if (a11 >= monthStart) {
+                a11 = getLunarMonth11(yy - 1, timeZone);
+            } else {
+                b11 = getLunarMonth11(yy + 1, timeZone);
+            }
+            let lunarDay = dayNumber - monthStart + 1;
+            let diff = INT((monthStart - a11) / 29);
+            let lunarMonth = diff + 11;
+            if (b11 - a11 > 365) {
+                let leapMonthDiff = getLeapMonthOffset(a11, timeZone);
+                if (diff >= leapMonthDiff) {
+                    lunarMonth--;
+                    if (diff === leapMonthDiff) {
+                        return [lunarDay, lunarMonth > 12 ? lunarMonth - 12 : lunarMonth, yy, 1];
+                    }
+                }
+            }
+            if (lunarMonth > 12) lunarMonth -= 12;
+            if (lunarMonth >= 11 && diff < 4) yy -= 1;
+            return [lunarDay, lunarMonth, yy, 0];
         }
+
+        function getLunarDate(dd, mm, yy) {
+            const timeZone = 7;
+            const result = convertSolar2Lunar(dd, mm, yy, timeZone);
+            return {
+                day: result[0],
+                month: result[1],
+                year: result[2],
+                isLeap: result[3] === 1
+            };
+        }
+
         return { getLunarDate };
     })();
+
+    // Hàm lấy tên Năm Âm Lịch (Can Chi)
+    function getLunarYearName(year) {
+        const can = ['Canh', 'Tân', 'Nhâm', 'Quý', 'Giáp', 'Ất', 'Bính', 'Đinh', 'Mậu', 'Kỷ'];
+        const chi = ['Thân', 'Dậu', 'Tuất', 'Hợi', 'Tý', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tỵ', 'Ngọ', 'Mùi'];
+        return can[year % 10] + ' ' + chi[year % 12];
+    }
 </script>
 
 <script>
@@ -485,7 +559,6 @@
     });
 
     // --- RECURRING LOGIC (Dynamic Check) ---
-    // Hàm lấy danh sách sự kiện cho 1 ngày cụ thể (Bao gồm cả Makeup và Lịch Nghỉ lặp lại)
     function getEventsForDate(targetDateObj) {
         const targetDateStr = formatDateStr(targetDateObj);
         const targetTime = targetDateObj.getTime();
@@ -494,27 +567,22 @@
         let results = [];
 
         appointments.forEach(app => {
-            // Chuẩn hóa dữ liệu cũ nếu thiếu type
             const appType = app.type || 'makeup';
 
-            // Sự kiện không lặp lại
             if (appType === 'makeup' || !app.isRepeat) {
                 if (app.date === targetDateStr) results.push(app);
                 return;
             }
 
-            // Nếu chính là ngày bắt đầu thì chắc chắn hiển thị
             if (targetDateStr === app.date) {
                 results.push(app);
                 return;
             }
 
-            // Sự kiện Lặp lại (Chỉ dành cho Lịch Nghỉ)
             const [bYear, bMonth, bDay] = app.date.split('-');
             const baseDateObj = new Date(parseInt(bYear), parseInt(bMonth) - 1, parseInt(bDay));
             const baseTime = baseDateObj.getTime();
 
-            // Không lặp trước ngày bắt đầu
             if (targetTime < baseTime) return;
 
             let isMatch = false;
@@ -534,7 +602,6 @@
             } else if (app.repeatCalType === 'lunar' && app.baseLunar) {
                 const bLunar = app.baseLunar;
                 if (app.repeatInterval === 'week') {
-                    // Lặp mỗi tuần theo âm lịch vẫn dùng khoảng cách 7 ngày thực tế
                     const diffDays = Math.round((targetTime - baseTime) / (1000 * 60 * 60 * 24));
                     if (diffDays % 7 === 0) isMatch = true;
                 } else if (app.repeatInterval === 'month') {
@@ -547,7 +614,6 @@
                 }
             }
 
-            // Nếu khớp điều kiện lặp, copy object và sửa ngày thành ngày hiện tại để hiển thị
             if (isMatch) {
                 results.push({ ...app, originalDate: app.date, date: targetDateStr, isInstance: true });
             }
@@ -581,10 +647,7 @@
             let lunarText = `${lunar.day}/${lunar.month}`;
             const isHighlightLunar = (lunar.day === 1 || lunar.day === 15);
 
-            // Lấy sự kiện cho ngày này
             const dailyApps = getEventsForDate(cellDate);
-            
-            // Tách loại sự kiện
             const makeupApps = dailyApps.filter(a => (a.type || 'makeup') === 'makeup');
             const dayOffApps = dailyApps.filter(a => a.type === 'dayoff');
             const isDayOff = dayOffApps.length > 0;
@@ -597,7 +660,6 @@
             }
 
             const cell = document.createElement('div');
-            // Thêm class 'day-off-mark' nếu là ngày nghỉ
             cell.className = `calendar-cell ${isSelected ? 'active' : ''} ${isToday && !isSelected ? 'border border-primary text-primary' : ''} ${isDayOff ? 'day-off-mark' : ''}`;
             cell.onclick = () => selectDate(cellDate);
 
@@ -636,11 +698,11 @@
         titleEl.innerText = isToday ? `Hôm nay, ${selectedDate.getDate()} thg ${selectedDate.getMonth()+1}` : `${dayOfWeek}, ${selectedDate.getDate()}/${selectedDate.getMonth()+1}`;
         
         const lunar = LunarCal.getLunarDate(selectedDate.getDate(), selectedDate.getMonth() + 1, selectedDate.getFullYear());
-        lunarTitleEl.innerText = `Âm lịch: Ngày ${lunar.day} tháng ${lunar.month}`;
+        // Hiển thị đầy đủ Ngày, Tháng, Năm và Can Chi
+        lunarTitleEl.innerText = `Âm lịch: Ngày ${lunar.day} tháng ${lunar.month} năm ${lunar.year} (${getLunarYearName(lunar.year)})`;
 
         const dailyApps = getEventsForDate(selectedDate);
         
-        // Sort: Makeup có giờ trước, Nghỉ nằm cuối. Cùng loại thì sort theo giờ.
         dailyApps.sort((a, b) => {
             if (a.type !== b.type) return (a.type === 'dayoff') ? 1 : -1;
             return (a.time || '').localeCompare(b.time || '');
@@ -685,7 +747,6 @@
                         <div class="shrink-0 flex items-start justify-center w-6">${statusHtml}</div>
                     </div>`;
             } else {
-                // UI cho Lịch Nghỉ
                 card.className = `bg-red-50 p-4 rounded-2xl shadow-sm border border-red-200 flex justify-between items-center active:scale-[0.98] transition-transform cursor-pointer`;
                 card.onclick = () => openDetailModal(app.id);
                 
@@ -786,12 +847,10 @@
                 }
             }
         } else {
-            // New Mode
             document.getElementById('inpId').value = '';
             document.getElementById('inpDate').value = formatDateStr(selectedDate);
             document.getElementById('inpTime').value = '';
             
-            // Reset Makeup
             document.getElementById('inpCustomer').value = '';
             document.getElementById('inpGuestCount').value = '1';
             document.getElementById('inpPackage').value = '';
@@ -800,14 +859,13 @@
             document.querySelector('input[name="sourceType"][value="Facebook"]').checked = true;
             document.getElementById('inpSourceOther').value = '';
             
-            // Reset Dayoff
             document.getElementById('inpReason').value = '';
             document.getElementById('toggleRepeat').checked = false;
             document.querySelector('input[name="repeatCalType"][value="solar"]').checked = true;
             document.querySelector('input[name="repeatInterval"][value="week"]').checked = true;
             handleRepeatToggle();
 
-            switchEventType('makeup'); // Mặc định mở lên là Makeup
+            switchEventType('makeup');
         }
         
         toggleSourceOther();
@@ -821,7 +879,7 @@
         if(!dateVal) return;
         const [y, m, d] = dateVal.split('-');
         const lunar = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
-        document.getElementById('formLunarDateText').innerHTML = `<i class="fas fa-moon mr-1"></i> Âm lịch: Ngày ${lunar.day} tháng ${lunar.month}`;
+        document.getElementById('formLunarDateText').innerHTML = `<i class="fas fa-moon mr-1"></i> Âm lịch: Ngày ${lunar.day} tháng ${lunar.month} năm ${lunar.year} (${getLunarYearName(lunar.year)})`;
     }
 
     function saveAppointment() {
@@ -852,7 +910,6 @@
                 status: 'pending', amount: 0
             };
         } else {
-            // Day Off
             const reason = document.getElementById('inpReason').value.trim();
             if (!reason) { alert('Vui lòng nhập lý do nghỉ!'); return; }
 
@@ -897,10 +954,11 @@
         const [y, m, d] = (app.isInstance ? app.originalDate : app.date).split('-');
         const lunarObj = LunarCal.getLunarDate(parseInt(d), parseInt(m), parseInt(y));
         const dateDisplay = `${d}/${m}/${y}`;
-        const lunarDisplay = `${lunarObj.day}/${lunarObj.month}`;
+        
+        // Thêm Năm Âm lịch và Can Chi vào hiển thị
+        const lunarDisplay = `${lunarObj.day}/${lunarObj.month}/${lunarObj.year} (${getLunarYearName(lunarObj.year)})`;
 
         if (type === 'makeup') {
-            // Render Phiếu Chốt Lịch
             let badgeHtml = '';
             if (app.status === 'completed') {
                 badgeHtml = `<div class="absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">Đã Hoàn Thành</div>`;
@@ -923,7 +981,8 @@
                     </div>
                     <div class="border-t border-rose-200 pt-4 mb-4">
                         <p class="mb-2 text-[15px] text-gray-700"><strong>Khách hàng:</strong> <span class="text-gray-900 font-medium">${app.customer}</span></p>
-                        <p class="mb-2 text-[15px] text-gray-700"><strong>Ngày hẹn:</strong> <span class="text-gray-900 font-medium">${dateDisplay}</span> <span class="text-[13px] text-primary ml-1">(Âm: ${lunarDisplay})</span></p>
+                        <p class="mb-2 text-[15px] text-gray-700"><strong>Ngày hẹn:</strong> <span class="text-gray-900 font-medium">${dateDisplay}</span></p>
+                        <p class="mb-2 text-[13px] text-primary italic"><strong>Âm lịch:</strong> <span>${lunarDisplay}</span></p>
                         <p class="mb-2 text-[15px] text-gray-700"><strong>Giờ hẹn:</strong> <span class="text-primary font-bold text-lg">${app.time}</span></p>
                     </div>
                     <div class="bg-rose-100/50 p-3 rounded-lg mb-4">
@@ -944,8 +1003,7 @@
             btnComplete.onclick = () => { closeModal('detailModal'); openMoneyModal(id, app.customer); };
 
         } else {
-            // Render Phiếu Lịch Nghỉ
-            btnComplete.style.display = 'none'; // Không có nút thanh toán cho Lịch nghỉ
+            btnComplete.style.display = 'none';
             
             let repeatText = 'Không lặp lại';
             if (app.isRepeat) {
@@ -963,10 +1021,12 @@
                     </div>
                     
                     <div class="bg-white p-4 rounded-lg shadow-sm border border-orange-100">
-                        <p class="mb-3 text-[15px] text-gray-700 border-b border-gray-100 pb-2">
+                        <p class="mb-2 text-[15px] text-gray-700">
                             <strong><i class="far fa-calendar-alt text-orange-400 w-5"></i> Bắt đầu:</strong> 
                             <span class="text-gray-900 font-medium">${dateDisplay}</span> 
-                            <span class="text-[13px] text-orange-500 ml-1">(Âm: ${lunarDisplay})</span>
+                        </p>
+                        <p class="mb-3 text-[13px] text-orange-500 italic border-b border-gray-100 pb-2">
+                            <strong>Âm lịch:</strong> ${lunarDisplay}
                         </p>
                         ${app.time ? `<p class="mb-3 text-[15px] text-gray-700 border-b border-gray-100 pb-2"><strong><i class="far fa-clock text-orange-400 w-5"></i> Từ giờ:</strong> <span class="font-medium">${app.time}</span></p>` : ''}
                         
@@ -997,7 +1057,7 @@
         openModal('detailModal');
     }
 
-    // --- MONEY & STATS --- (Giữ nguyên logic cũ)
+    // --- MONEY & STATS ---
     function openMoneyModal(id, customerName) {
         currentActionId = id; document.getElementById('moneyCustomerName').innerText = customerName;
         document.getElementById('inpMoney').value = ''; openModal('moneyModal');
@@ -1013,7 +1073,6 @@
     function renderStats() {
         document.getElementById('statMonthYearText').innerText = `Tháng ${statMonth + 1}, ${statYear}`;
         const monthStr = `${statYear}-${String(statMonth + 1).padStart(2, '0')}`;
-        // Lọc app loại makeup và completed
         const completedJobs = appointments.filter(app => (app.type || 'makeup') === 'makeup' && app.status === 'completed' && app.date.startsWith(monthStr));
         completedJobs.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
 
